@@ -122,6 +122,22 @@ class RgbControllerService {
     this.queryModel().then(() => this.readDeviceConfig());
   }
 
+  private configListeners: ((config136: Uint8Array) => void)[] = [];
+
+  public onConfigRead(fn: (config136: Uint8Array) => void) {
+    this.configListeners.push(fn);
+    if (this.cachedConfig) {
+      fn(this.cachedConfig);
+    }
+    return () => {
+      this.configListeners = this.configListeners.filter((l) => l !== fn);
+    };
+  }
+
+  public getCachedConfig(): Uint8Array | null {
+    return this.cachedConfig;
+  }
+
   public detachDevice() {
     this.stopSoftwareAnimation();
     this.stopKeepalive();
@@ -194,6 +210,13 @@ class RgbControllerService {
       }
 
       this.cachedConfig = new Uint8Array(config136);
+      this.configListeners.forEach((fn) => {
+        try {
+          fn(this.cachedConfig!);
+        } catch {
+          // Ignore listener error
+        }
+      });
 
       // Only notify listeners if not in silent/internal sync mode
       if (!silent) {
