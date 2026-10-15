@@ -751,7 +751,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                 return (
                   <div
                     key={rowIdx}
-                    className="flex items-center gap-1.5 relative h-11 w-full max-w-[760px]"
+                    className="flex items-center gap-1.5 relative h-11 w-full max-w-[704px]"
                   >
                     {keysInRow.map((keyDef: KeyDefinition) => {
                       const colorHex = rgbState.perKeyColors[keyDef.matrixIdx] || '#111111';
@@ -763,12 +763,12 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                         return (
                           <div
                             key={keyDef.matrixIdx}
-                            style={{ marginLeft: `${keyDef.col * 38}px` }}
-                            className="absolute right-0 top-0 flex flex-col items-center cursor-pointer group"
+                            style={{ left: `${keyDef.col * 44}px`, width: '38px' }}
+                            className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-pointer group"
                             onClick={() => handleKeyPaint(keyDef.matrixIdx)}
                           >
                             <div
-                              className="w-10 h-10 rounded-full border flex items-center justify-center transition-all shadow-md"
+                              className="w-9 h-9 rounded-full border flex items-center justify-center transition-all shadow-md"
                               style={{
                                 borderColor: isPainted ? colorHex : '#2a2a2a',
                                 backgroundColor: isPainted ? colorHex : '#181818',
@@ -789,7 +789,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                           onClick={() => handleKeyPaint(keyDef.matrixIdx)}
                           style={{
                             width: `${widthPx}px`,
-                            left: `${keyDef.col * 43}px`,
+                            left: `${keyDef.col * 44}px`,
                             borderColor: isPainted ? `${colorHex}bb` : '#222222',
                             backgroundColor: isPainted ? `${colorHex}22` : '#121212',
                             boxShadow: isPainted ? `0 0 14px ${colorHex}55` : 'none',

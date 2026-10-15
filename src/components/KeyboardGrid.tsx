@@ -43,7 +43,7 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
       {rows.map((rowIdx) => {
         const keysInRow = LEOBOG_HI75C_LAYOUT.filter((k) => k.row === rowIdx);
         return (
-          <div key={rowIdx} className="flex items-center gap-1.5 relative h-11 w-full max-w-[760px]">
+          <div key={rowIdx} className="flex items-center gap-1.5 relative h-11 w-full max-w-[704px]">
             {keysInRow.map((keyDef: KeyDefinition) => {
               const record = records.get(keyDef.matrixIdx);
               const currentUsage = record ? record.hidUsage : null;
@@ -56,12 +56,12 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
                 return (
                   <div
                     key={keyDef.matrixIdx}
-                    style={{ marginLeft: `${keyDef.col * 38}px` }}
-                    className="absolute right-0 top-0 flex flex-col items-center cursor-pointer group"
+                    style={{ left: `${keyDef.col * 44}px`, width: '38px' }}
+                    className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-pointer group"
                     onClick={() => onSelectKey(keyDef.matrixIdx)}
                   >
                     <div
-                      className={`w-10 h-10 rounded-full bg-[#181818] border border-[#2a2a2a] group-hover:border-zinc-400 flex items-center justify-center transition-all ${
+                      className={`w-9 h-9 rounded-full bg-[#181818] border border-[#2a2a2a] group-hover:border-zinc-400 flex items-center justify-center transition-all ${
                         isPressed
                           ? 'border-cyan-400 bg-[#162433] scale-95 shadow-[0_0_15px_#06b6d4]'
                           : isSelected
@@ -92,7 +92,7 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
                   onClick={() => onSelectKey(keyDef.matrixIdx)}
                   style={{
                     width: `${widthPx}px`,
-                    left: `${keyDef.col * 43}px`,
+                    left: `${keyDef.col * 44}px`,
                     ...(hasRgbGlow && !isPressed && !isSelected
                       ? {
                           borderColor: `${keyRgb}88`,

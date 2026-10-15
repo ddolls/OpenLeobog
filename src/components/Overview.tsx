@@ -70,7 +70,7 @@ export const Overview: React.FC<OverviewProps> = ({
             </div>
             <div className="text-3xl font-extrabold text-white">75% ANSI</div>
             <div className="text-[11px] text-zinc-500 mt-1">
-              80 Physical Key Caps + Rotary Volume Knob
+              81 Physical Key Caps + Rotary Volume Knob
             </div>
           </div>
 

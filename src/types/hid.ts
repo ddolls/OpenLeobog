@@ -116,7 +116,7 @@ export const DEFAULT_MATRIX_USAGES: Record<number, number> = {
   85: 0x4C, // Del
   86: 0x4B, // PgUp
   87: 0x4E, // PgDn
-  88: 0x4F, // Right Arrow (if 88)
+  88: 0x4D, // End (Matrix 88)
   89: 0x4F, // Right Arrow (Matrix 89)
 };
 
@@ -225,24 +225,23 @@ export function encodeComboBytes(modBitmask: number, keyUsage: number): [number,
 
 // Map of physical keys on Leobog Hi75 C Pro 75% Layout (Verified Physical Matrix Map)
 export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
-  // Row 0: Esc, F1-F12, Del, Knob
+  // Row 0: Esc, F1-F12, Knob
   { matrixIdx: 0, label: 'Esc', row: 0, col: 0 },
-  { matrixIdx: 12, label: 'F1', row: 0, col: 1.5 },
-  { matrixIdx: 18, label: 'F2', row: 0, col: 2.5 },
-  { matrixIdx: 24, label: 'F3', row: 0, col: 3.5 },
-  { matrixIdx: 30, label: 'F4', row: 0, col: 4.5 },
-  { matrixIdx: 36, label: 'F5', row: 0, col: 5.8 },
-  { matrixIdx: 42, label: 'F6', row: 0, col: 6.8 },
-  { matrixIdx: 48, label: 'F7', row: 0, col: 7.8 },
-  { matrixIdx: 54, label: 'F8', row: 0, col: 8.8 },
-  { matrixIdx: 60, label: 'F9', row: 0, col: 10.1 },
-  { matrixIdx: 66, label: 'F10', row: 0, col: 11.1 },
-  { matrixIdx: 72, label: 'F11', row: 0, col: 12.1 },
-  { matrixIdx: 78, label: 'F12', row: 0, col: 13.1 },
-  { matrixIdx: 85, label: 'Del', row: 0, col: 14.3, category: 'nav' },
-  { matrixIdx: 99, label: 'VOL', row: 0, col: 15.5, isKnob: true },
+  { matrixIdx: 12, label: 'F1', row: 0, col: 1.75 },
+  { matrixIdx: 18, label: 'F2', row: 0, col: 2.75 },
+  { matrixIdx: 24, label: 'F3', row: 0, col: 3.75 },
+  { matrixIdx: 30, label: 'F4', row: 0, col: 4.75 },
+  { matrixIdx: 36, label: 'F5', row: 0, col: 6.25 },
+  { matrixIdx: 42, label: 'F6', row: 0, col: 7.25 },
+  { matrixIdx: 48, label: 'F7', row: 0, col: 8.25 },
+  { matrixIdx: 54, label: 'F8', row: 0, col: 9.25 },
+  { matrixIdx: 60, label: 'F9', row: 0, col: 10.75 },
+  { matrixIdx: 66, label: 'F10', row: 0, col: 11.75 },
+  { matrixIdx: 72, label: 'F11', row: 0, col: 12.75 },
+  { matrixIdx: 78, label: 'F12', row: 0, col: 13.75 },
+  { matrixIdx: 99, label: 'Knob', row: 0, col: 15, isKnob: true },
 
-  // Row 1: `~, 1-0, -, =, Backspace, PgUp
+  // Row 1: `~, 1-0, -, =, Backspace, Delete
   { matrixIdx: 1, label: '`', row: 1, col: 0 },
   { matrixIdx: 7, label: '1', row: 1, col: 1 },
   { matrixIdx: 13, label: '2', row: 1, col: 2 },
@@ -257,9 +256,9 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 67, label: '-', row: 1, col: 11 },
   { matrixIdx: 73, label: '=', row: 1, col: 12 },
   { matrixIdx: 79, label: 'Backspace', width: 2, row: 1, col: 13 },
-  { matrixIdx: 86, label: 'PgUp', row: 1, col: 15.3, category: 'nav' },
+  { matrixIdx: 85, label: 'Delete', row: 1, col: 15, category: 'nav' },
 
-  // Row 2: Tab, QWERTYUIOP, [, ], \, PgDn
+  // Row 2: Tab, QWERTYUIOP, [, ], \, End
   { matrixIdx: 2, label: 'Tab', width: 1.5, row: 2, col: 0 },
   { matrixIdx: 8, label: 'Q', row: 2, col: 1.5 },
   { matrixIdx: 14, label: 'W', row: 2, col: 2.5 },
@@ -273,10 +272,10 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 62, label: 'P', row: 2, col: 10.5 },
   { matrixIdx: 68, label: '[', row: 2, col: 11.5 },
   { matrixIdx: 74, label: ']', row: 2, col: 12.5 },
-  { matrixIdx: 80, label: '\\\\', width: 1.5, row: 2, col: 13.5 },
-  { matrixIdx: 87, label: 'PgDn', row: 2, col: 15.3, category: 'nav' },
+  { matrixIdx: 80, label: '\\', width: 1.5, row: 2, col: 13.5 },
+  { matrixIdx: 88, label: 'End', row: 2, col: 15, category: 'nav' },
 
-  // Row 3: Caps, ASDFGHJKL, ;, ', Enter, PrtSc
+  // Row 3: Caps, ASDFGHJKL, ;, ', Enter, PgUp
   { matrixIdx: 3, label: 'Caps', width: 1.75, row: 3, col: 0 },
   { matrixIdx: 9, label: 'A', row: 3, col: 1.75 },
   { matrixIdx: 15, label: 'S', row: 3, col: 2.75 },
@@ -289,10 +288,10 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 57, label: 'L', row: 3, col: 9.75 },
   { matrixIdx: 63, label: ';', row: 3, col: 10.75 },
   { matrixIdx: 69, label: "'", row: 3, col: 11.75 },
-  { matrixIdx: 81, label: 'Enter', width: 2.25, row: 3, col: 12.75 }, // Physical Enter = Matrix 81
-  { matrixIdx: 84, label: 'PrtSc', row: 3, col: 15.3, category: 'nav' },
+  { matrixIdx: 81, label: 'Enter', width: 2.25, row: 3, col: 12.75 },
+  { matrixIdx: 86, label: 'PgUp', row: 3, col: 15, category: 'nav' },
 
-  // Row 4: LShift, ZXCVBNM, ,, ., /, RShift, Up
+  // Row 4: LShift, ZXCVBNM, ,, ., /, RShift, Up, PgDn
   { matrixIdx: 4, label: 'LShift', width: 2.25, row: 4, col: 0, category: 'modifier' },
   { matrixIdx: 10, label: 'Z', row: 4, col: 2.25 },
   { matrixIdx: 16, label: 'X', row: 4, col: 3.25 },
@@ -305,19 +304,20 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 58, label: '.', row: 4, col: 10.25 },
   { matrixIdx: 64, label: '/', row: 4, col: 11.25 },
   { matrixIdx: 70, label: 'RShift', width: 1.75, row: 4, col: 12.25, category: 'modifier' },
-  { matrixIdx: 82, label: '▲', row: 4, col: 14.3, category: 'nav' },
+  { matrixIdx: 82, label: '▲', row: 4, col: 14, category: 'nav' },
+  { matrixIdx: 87, label: 'PgDn', row: 4, col: 15, category: 'nav' },
 
   // Row 5: LCtrl, Win, LAlt, Space, RAlt, Fn, RCtrl, Left, Down, Right
   { matrixIdx: 5, label: 'LCtrl', width: 1.25, row: 5, col: 0, category: 'modifier' },
   { matrixIdx: 11, label: 'Win', width: 1.25, row: 5, col: 1.25, category: 'modifier' },
   { matrixIdx: 17, label: 'LAlt', width: 1.25, row: 5, col: 2.5, category: 'modifier' },
-  { matrixIdx: 35, label: 'Space', width: 6.25, row: 5, col: 3.75 }, // Physical Space = Matrix 35
-  { matrixIdx: 59, label: 'RAlt', width: 1.25, row: 5, col: 10, category: 'modifier' }, // Physical RAlt = Matrix 59
-  { matrixIdx: 53, label: 'Fn', width: 1.25, row: 5, col: 11.25, category: 'fn' },
-  { matrixIdx: 71, label: 'RCtrl', width: 1.25, row: 5, col: 12.5, category: 'modifier' },
-  { matrixIdx: 77, label: '◄', row: 5, col: 13.9, category: 'nav' }, // Physical Left = Matrix 77
-  { matrixIdx: 83, label: '▼', row: 5, col: 14.9, category: 'nav' },
-  { matrixIdx: 89, label: '►', row: 5, col: 15.9, category: 'nav' }, // Physical Right = Matrix 89
+  { matrixIdx: 35, label: 'Space', width: 6.25, row: 5, col: 3.75 },
+  { matrixIdx: 59, label: 'RAlt', width: 1, row: 5, col: 10, category: 'modifier' },
+  { matrixIdx: 53, label: 'Fn', width: 1, row: 5, col: 11, category: 'fn' },
+  { matrixIdx: 71, label: 'RCtrl', width: 1, row: 5, col: 12, category: 'modifier' },
+  { matrixIdx: 77, label: '◄', row: 5, col: 13, category: 'nav' },
+  { matrixIdx: 83, label: '▼', row: 5, col: 14, category: 'nav' },
+  { matrixIdx: 89, label: '►', row: 5, col: 15, category: 'nav' },
 ];
 
 // Common HID Usages
