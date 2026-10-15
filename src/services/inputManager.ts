@@ -111,6 +111,7 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   Delete: 85,
   PageUp: 86,
   PageDown: 87,
+  End: 88, // Physical End = Matrix 88
   ArrowRight: 89, // Physical Right Arrow = Matrix 89
 };
 
@@ -135,6 +136,7 @@ export const FRIENDLY_KEY_NAMES: Record<string, string> = {
   Space: 'Space',
   PageUp: 'PgUp',
   PageDown: 'PgDn',
+  End: 'End',
 };
 
 class InputManager {
