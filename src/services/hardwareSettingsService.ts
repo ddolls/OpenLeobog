@@ -53,29 +53,37 @@ class HardwareSettingsService {
     }
   }
 
-  // Parse verified Cfg[2](Debounce), Cfg[8](Tap), and Cfg[9](Sleep) from hardware memory
+  // Parse verified Cfg[24](Sleep), Cfg[22](Tap), and Cfg[3](Debounce) from hardware memory
   public syncFromHardwareConfig(config136: Uint8Array) {
-    if (!config136 || config136.length < 18) return;
+    if (!config136 || config136.length < 32) return;
 
-    // Log raw bytes for diagnostics
-    const hexSlice = Array.from(config136.slice(0, 24))
+    // Log raw bytes for diagnostics (first 36 bytes covers all Cfg headers and settings)
+    const hexSlice = Array.from(config136.slice(0, 36))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join(' ');
-    webhid.log(`[Hardware Sync] Device Cfg buffer[0..23]: ${hexSlice}`);
+    webhid.log(`[Hardware Sync] Device Cfg buffer[0..35]: ${hexSlice}`);
 
-    // Offsets: Cfg starts at payload offset 7 on the wire (pkt[7..])
-    // Debounce: Cfg[2] (wire offset 7 + 2 = 9) or legacy config136[2]
-    const rawDebounce = config136[9] >= 1 && config136[9] <= 5 ? config136[9] : config136[2];
+    // Offsets on wire (pkt[7..] = Cfg[0..]):
+    // In standard SinoWealth/Leobog firmware (FillCfg):
+    // Cfg[3]  (wire offset 7 + 3  = 10): Debounce stage (1 - 5)
+    // Cfg[22] (wire offset 7 + 22 = 29): Tap sensitivity / status
+    // Cfg[24] (wire offset 7 + 24 = 31): Sleep timeout in 30s units (0 = off, 2 = 60s/1m, 4 = 120s/2m, 6 = 180s/3m)
+    const rawDebounce = (config136[10] >= 1 && config136[10] <= 5)
+      ? config136[10]
+      : (config136[9] >= 1 && config136[9] <= 5 ? config136[9] : config136[2]);
     const debounceStage = rawDebounce >= 1 && rawDebounce <= 5 ? rawDebounce : this.settings.debounceStage;
 
-    // Tap: Cfg[8] (wire offset 7 + 8 = 15) or legacy config136[8]
-    const rawTap = config136[15] !== undefined && config136[15] <= 10 ? config136[15] : config136[8];
+    const rawTap = config136[29] !== undefined && config136[29] <= 10
+      ? config136[29]
+      : (config136[15] !== undefined && config136[15] <= 10 ? config136[15] : config136[8]);
     const tapEnabled = rawTap > 0;
     const tapSensitivityMs = rawTap > 0 ? Math.max(50, Math.min(500, rawTap * 50)) : this.settings.tapSensitivityMs;
 
-    // Sleep: Cfg[9] (wire offset 7 + 9 = 16) or legacy config136[9]
-    // Unit in Leobog firmware is 30-second increments (e.g. 2 = 60s/1m, 4 = 120s/2m, 6 = 180s/3m)
-    const rawSleepVal = config136[16] !== undefined ? config136[16] : config136[9];
+    // Sleep timer: check byte 31 (Cfg[24]), fallback to byte 16 if set
+    let rawSleepVal = config136[31];
+    if (rawSleepVal === undefined || rawSleepVal > 120) {
+      rawSleepVal = (config136[16] > 1 && config136[16] <= 60) ? config136[16] : config136[9];
+    }
     const sleepEnabled = rawSleepVal > 0;
     const sleepTimeoutSeconds = sleepEnabled ? rawSleepVal * 30 : this.settings.sleepTimeoutSeconds;
 
@@ -88,9 +96,9 @@ class HardwareSettingsService {
     };
 
     webhid.log(
-      `[Hardware Sync] Synced from device EEPROM: Debounce=Stage ${debounceStage}, Sleep=${
-        sleepEnabled ? `${Math.round(sleepTimeoutSeconds / 60)} Min (${rawSleepVal}x30s)` : 'Disabled (Always Awake)'
-      }, Tap=${tapEnabled ? `${tapSensitivityMs}ms` : 'OFF'}`
+      `[Hardware Sync] Synced from device EEPROM: Debounce=Stage ${debounceStage} (byte[10]=${config136[10]}), Sleep=${
+        sleepEnabled ? `${Math.round(sleepTimeoutSeconds / 60)} Min (${rawSleepVal}x30s at byte[31])` : 'Disabled (Always Awake)'
+      }, Tap=${tapEnabled ? `${tapSensitivityMs}ms (byte[29]=${rawTap})` : 'OFF'}`
     );
 
     this.notify();
@@ -179,24 +187,22 @@ class HardwareSettingsService {
         }
       }
 
-      // 3. Set verified Cfg offsets (Cfg starts at payload offset 7):
-      // FillCfg_LowDaly: Cfg[2](Debounce)=%d, Cfg[3](Debounce Mirror)=%d, Cfg[8](Tap)=%d, Cfg[9](Sleep)=%d
-      // In wire packet pkt:
-      // pkt[7 + 2] = pkt[9] = Debounce Stage
-      // pkt[7 + 3] = pkt[10] = Debounce Mirror
-      // pkt[7 + 8] = pkt[15] = Tap Level
-      // pkt[7 + 9] = pkt[16] = Sleep Units (in 30s)
-      pkt[7 + 2] = debounceStage;
-      pkt[7 + 3] = debounceStage;
-      pkt[7 + 8] = tapVal;
-      pkt[7 + 9] = sleepUnits;
+      // 3. Set verified Cfg offsets according to Leobog ONE driver FillCfg disassembly:
+      // Cfg[3]  (wire pkt[7 + 3  = 10]): Debounce stage (1-5)
+      // Cfg[22] (wire pkt[7 + 22 = 29]): Tap setting (0=OFF, 1-10)
+      // Cfg[24] (wire pkt[7 + 24 = 31]): Sleep timeout in 30s units (2=1m, 4=2m, 6=3m, 10=5m)
+      pkt[7 + 3] = debounceStage; // pkt[10]
+      pkt[7 + 22] = tapVal;       // pkt[29]
+      pkt[7 + 24] = sleepUnits;   // pkt[31]
 
-      // Also set unshifted pkt[2], pkt[8] for compatibility with older firmware builds, preserving pkt[3]=0x01!
+      // Mirror to secondary / LowDaly offsets for maximum cross-revision firmware compatibility
+      pkt[7 + 2] = debounceStage; // pkt[9]
+      pkt[7 + 8] = tapVal;        // pkt[15]
       pkt[2] = debounceStage;
       pkt[8] = tapVal;
 
       webhid.log(
-        `[Hardware Settings] Writing packet: pkt[9]=${pkt[9]}, pkt[10]=${pkt[10]}, pkt[15]=${pkt[15]}, pkt[16]=${pkt[16]}`
+        `[Hardware Settings] Writing packet: pkt[10](Debounce)=${pkt[10]}, pkt[29](Tap)=${pkt[29]}, pkt[31](Sleep)=${pkt[31]}`
       );
 
       // 4. Send feature report 6
