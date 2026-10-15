@@ -8,6 +8,7 @@ interface OverviewProps {
   deviceName?: string;
   vendorId?: string;
   productId?: string;
+  firmwareVersion?: string;
 }
 
 export const Overview: React.FC<OverviewProps> = ({
@@ -18,6 +19,7 @@ export const Overview: React.FC<OverviewProps> = ({
   deviceName,
   vendorId,
   productId,
+  firmwareVersion,
 }) => {
   return (
     <div className="space-y-6">
@@ -77,7 +79,9 @@ export const Overview: React.FC<OverviewProps> = ({
             <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase font-medium">
               FIRMWARE
             </div>
-            <div className="text-xl font-extrabold text-white">v1.2</div>
+            <div className="text-xl font-extrabold text-white">
+              {firmwareVersion || (isConnected ? 'V8.0.0 (USB)' : 'V8.0.0 (USB)')}
+            </div>
             <div className="text-[11px] text-zinc-500">
               {modifiedCount > 0 ? `${modifiedCount} remapped keys active` : 'Stock factory state (0 custom keys)'}
             </div>

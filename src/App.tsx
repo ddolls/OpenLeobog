@@ -213,6 +213,7 @@ export function App() {
                 deviceName={hidState.deviceName}
                 vendorId={hidState.vendorId}
                 productId={hidState.productId}
+                firmwareVersion={hidState.firmwareVersion}
               />
 
               <LiveInputWidget records={hidState.records} />

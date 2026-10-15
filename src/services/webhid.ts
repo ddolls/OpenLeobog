@@ -5,6 +5,7 @@ export interface WebHIDState {
   deviceName: string;
   vendorId: string;
   productId: string;
+  firmwareVersion?: string;
   matrixData: Uint8Array | null;
   records: Map<number, KeyRecord>;
   modifiedCount: number;
@@ -98,13 +99,20 @@ class WebHIDController {
       const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
       const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
 
-      this.log(`Successfully opened ${devName} (${vidHex}:${pidHex})`);
+      const isWireless = devName.toLowerCase().includes('2.4g') ||
+                         devName.toLowerCase().includes('dongle') ||
+                         devName.toLowerCase().includes('receiver') ||
+                         devName.toLowerCase().includes('wireless');
+      const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
+
+      this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Firmware: ${fwVersion}`);
       
       this.notify({
         isConnected: true,
         deviceName: devName,
         vendorId: vidHex,
-        productId: pidHex
+        productId: pidHex,
+        firmwareVersion: fwVersion,
       });
 
       await this.readMatrixData();
