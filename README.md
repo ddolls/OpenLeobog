@@ -1,3 +1,11 @@
+> [!IMPORTANT]
+> ### 🌟 Upstream & Core Origins Attribution
+> **All the code in this repository originates from and is based on the [openaula](https://github.com/not-ayan/openaula) project created by [Ayan Biswas](https://github.com/not-ayan).**
+> - **OpenAula Repository**: [https://github.com/not-ayan/openaula](https://github.com/not-ayan/openaula)
+> - **Ayan Biswas GitHub**: [https://github.com/not-ayan](https://github.com/not-ayan)
+> 
+> We extend our deepest gratitude and full credit to [Ayan Biswas](https://github.com/not-ayan) for his groundbreaking reverse-engineering work, protocol research, and foundational codebase that made this WebHID configurator possible.
+
 # OpenLeobog // Leobog Hi75c Pro WebHID Configurator
 
 [![Deploy with Vercel](https://therealsujitk-vercel-badge.vercel.app/?app=open-leobog)](https://open-leobog.vercel.app/)
