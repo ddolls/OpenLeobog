@@ -121,7 +121,7 @@ export const LiveInputWidget: React.FC<LiveInputWidgetProps> = ({ records }) => 
             </div>
           ) : (
             <div className="text-xs font-mono text-zinc-600 italic">
-              Press any key on physical Leobog Hi75 C Pro keyboard...
+              Press any key on physical keyboard...
             </div>
           )}
         </div>

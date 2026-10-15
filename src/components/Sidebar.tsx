@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   userMode === 'dev' ? 'text-amber-300' : 'text-zinc-300'
                 }`}
               >
-                {userMode === 'dev' ? 'Dev Mode' : 'Guest Mode'}
+                {userMode === 'dev' ? 'Dev Mode' : 'Safe Mode'}
               </span>
             </div>
             <span className="text-[10px] font-mono text-zinc-500 hover:text-white transition-colors">

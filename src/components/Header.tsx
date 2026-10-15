@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${userMode === 'dev' ? 'bg-amber-400' : 'bg-cyan-400'}`} />
-            <span>{userMode === 'dev' ? 'Dev Mode' : 'Guest Mode'}</span>
+            <span>{userMode === 'dev' ? 'Dev Mode' : 'Safe Mode'}</span>
           </button>
         )}
 

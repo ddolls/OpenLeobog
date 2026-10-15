@@ -93,7 +93,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
           <button
             onClick={onSwapWinAlt}
             disabled={!isDevMode}
-            title={!isDevMode ? 'Disabled in Guest Mode' : ''}
+            title={!isDevMode ? 'Disabled in Safe Mode' : ''}
             className="btn-segment-inactive px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Swap Win &amp; Alt {!isDevMode && '(Locked)'}

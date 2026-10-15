@@ -167,32 +167,40 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
               </div>
 
               <div className="space-y-3 flex-1 flex flex-col justify-center">
-                {/* Guest Mode Card */}
+                {/* Safe Mode Card */}
                 <button
                   type="button"
                   onClick={handleChooseGuest}
                   className={`w-full p-4 rounded-xl border text-left transition-all flex flex-col justify-between space-y-2.5 group cursor-pointer ${
                     hasAgreed
-                      ? 'bg-[#151515] hover:bg-[#1c1c1c] border-[#292929] hover:border-zinc-400 shadow-sm'
+                      ? 'bg-cyan-500/10 border-cyan-500/40 hover:bg-cyan-500/20 hover:border-cyan-500/60 shadow-sm'
                       : 'bg-[#131313] border-[#222222] opacity-60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-800/90 flex items-center justify-center text-zinc-300 group-hover:text-white transition-colors">
-                      <Lock className="w-4 h-4" />
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                        hasAgreed ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400'
+                      }`}>
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${
+                        hasAgreed ? 'text-cyan-300' : 'text-zinc-300'
+                      }`}>
+                        Safe Mode
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      hasAgreed ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-zinc-800 text-zinc-400'
+                    }`}>
                       Recommended
                     </span>
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                      Guest Mode
-                    </div>
-                    <p className="text-[11px] text-zinc-400 leading-snug mt-1">
-                      Safe mode (Read Only). Hardware modification features are locked and hidden.
-                    </p>
-                  </div>
+                  <p className={`text-[11px] leading-snug mt-1 ${
+                    hasAgreed ? 'text-cyan-100/80' : 'text-zinc-500'
+                  }`}>
+                    Safe Mode, less feature can be change.
+                  </p>
                 </button>
 
                 {/* Dev Mode Card */}
@@ -206,21 +214,29 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
-                      <Unlock className="w-4 h-4" />
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                        hasAgreed ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-800 text-zinc-400'
+                      }`}>
+                        <Unlock className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${
+                        hasAgreed ? 'text-amber-300' : 'text-zinc-300'
+                      }`}>
+                        Dev Mode
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-200">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      hasAgreed ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30' : 'bg-zinc-800 text-zinc-400'
+                    }`}>
                       PIN Protected
                     </span>
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-amber-300">
-                      Dev Mode
-                    </div>
-                    <p className="text-[11px] text-zinc-400 leading-snug mt-1">
-                      Full hardware write access (Key Remap, Stream BETA, Backup/Restore).
-                    </p>
-                  </div>
+                  <p className={`text-[11px] leading-snug mt-1 ${
+                    hasAgreed ? 'text-zinc-400' : 'text-zinc-500'
+                  }`}>
+                    Full hardware write access (Key Remap, Stream BETA, Backup/Restore).
+                  </p>
                 </button>
               </div>
             </div>

@@ -42,7 +42,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     return unsubscribe;
   }, []);
 
-  // Enforce effects tab if user switches to Guest Mode while on stream tab
+  // Enforce effects tab if user switches to Safe Mode while on stream tab
   useEffect(() => {
     if (!isDevMode && activeTab === 'stream') {
       setActiveTab('effects');
@@ -340,7 +340,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
             onClick={() => {
               if (isDevMode) setActiveTab('stream');
             }}
-            title={!isDevMode ? 'Software Stream Animations (BETA) is locked in Guest Mode' : ''}
+            title={!isDevMode ? 'Software Stream Animations (BETA) is locked in Safe Mode' : ''}
             className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
               !isDevMode
                 ? 'opacity-40 cursor-not-allowed text-zinc-500 bg-[#121212]'
