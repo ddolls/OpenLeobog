@@ -503,11 +503,26 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                   onChange={(e) => handleSpeedChange(parseInt(e.target.value, 10))}
                   className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
                 />
-                <div className="flex justify-between text-[10px] text-zinc-600 font-mono">
-                  <span>Slow</span>
-                  <span>Normal</span>
-                  <span>Fast</span>
-                  <span>Extreme</span>
+                <div className="flex justify-between text-[10px] font-mono select-none px-0.5">
+                  {[
+                    { val: 0, label: 'Slowest' },
+                    { val: 1, label: 'Slow' },
+                    { val: 2, label: 'Normal' },
+                    { val: 3, label: 'Fast' },
+                    { val: 4, label: 'Extreme' },
+                  ].map((s) => (
+                    <span
+                      key={s.val}
+                      onClick={() => handleSpeedChange(s.val)}
+                      className={`cursor-pointer transition-colors ${
+                        rgbState.speed === s.val
+                          ? 'text-cyan-400 font-bold'
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  ))}
                 </div>
               </div>
 
