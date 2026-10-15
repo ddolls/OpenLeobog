@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { KeyRound, AlertTriangle, ArrowLeft, Lock, Unlock } from 'lucide-react';
+import {
+  FileText,
+  AlertTriangle,
+  ArrowLeft,
+  Lock,
+  Unlock,
+  ShieldAlert,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface ModeSelectionModalProps {
   isOpen: boolean;
@@ -12,18 +20,28 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   onSelectMode,
   onClose,
 }) => {
-  const [step, setStep] = useState<'choose' | 'devPin'>('choose');
+  const [step, setStep] = useState<'termsAndMode' | 'devPin'>('termsAndMode');
+  const [hasAgreed, setHasAgreed] = useState<boolean>(false);
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showAgreementWarning, setShowAgreementWarning] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
   const handleChooseGuest = () => {
+    if (!hasAgreed) {
+      setShowAgreementWarning(true);
+      return;
+    }
     onSelectMode('guest');
     if (onClose) onClose();
   };
 
   const handleProceedToDev = () => {
+    if (!hasAgreed) {
+      setShowAgreementWarning(true);
+      return;
+    }
     setStep('devPin');
     setPin('');
     setErrorMsg(null);
@@ -41,100 +59,201 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#121212] border border-[#262626] rounded-2xl w-full max-w-sm p-6 shadow-2xl relative overflow-hidden space-y-5">
-        {/* Subtle accent glow */}
-        <div className="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#121212] border border-[#2a2a2a] rounded-2xl w-full max-w-lg p-6 shadow-2xl relative overflow-hidden space-y-5">
+        {/* Ambient Top Glow */}
+        <div className="absolute -top-16 -right-16 w-44 h-44 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {step === 'choose' ? (
-          <div className="space-y-5 text-center">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-[#1c1c1c] border border-[#333333] flex items-center justify-center text-cyan-400">
-              <KeyRound className="w-6 h-6" />
+        {step === 'termsAndMode' ? (
+          <div className="space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 border-b border-[#222222] pb-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <h2 className="text-base font-bold text-white tracking-tight">
+                  Terms &amp; Conditions Agreement
+                </h2>
+                <p className="text-[11px] text-zinc-400">
+                  OpenLeobog WebHID Configurator • Leobog Hi75c Pro
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                Select Operating Mode
-              </h2>
-              <p className="text-xs text-zinc-400">
-                Choose access mode for Leobog Hi75 C Pro Configurator:
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 pt-1">
-              {/* Dev Mode Button */}
-              <button
-                type="button"
-                onClick={handleProceedToDev}
-                className="w-full p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/30 hover:border-amber-500/60 transition-all text-left group flex items-start gap-3 cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
-                  <Unlock className="w-4 h-4" />
+            {/* Scrollable Terms & Conditions Box */}
+            <div className="relative">
+              <div className="bg-[#0c0c0c] border border-[#242424] rounded-xl p-3.5 max-h-48 overflow-y-auto text-left text-[11px] text-zinc-300 space-y-3 leading-relaxed scrollbar-thin scrollbar-thumb-zinc-700">
+                <div className="space-y-1">
+                  <div className="font-bold text-white flex items-center gap-1.5 text-xs text-amber-300">
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>1. Risiko Modifikasi Mandiri (Do With Your Own Risk)</span>
+                  </div>
+                  <p className="text-zinc-400 pl-5">
+                    Aplikasi ini berkomunikasi langsung dengan hardware melalui WebHID. Penggunaan fitur modifikasi seperti <span className="text-zinc-200 font-semibold">Key Remapping, Penulisan EEPROM/Flash, dan Custom Lighting</span> dilakukan atas risiko Anda sendiri. Pengembang tidak bertanggung jawab atas kerusakan, kegagalan fungsi, atau ketidakstabilan perangkat.
+                  </p>
                 </div>
-                <div className="space-y-0.5 min-w-0">
-                  <div className="text-sm font-bold text-amber-300 flex items-center gap-1.5">
-                    <span>Dev Mode</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200">
+
+                <div className="space-y-1">
+                  <div className="font-bold text-white flex items-center gap-1.5 text-xs text-cyan-300">
+                    <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span>2. Komunikasi WebHID Langsung</span>
+                  </div>
+                  <p className="text-zinc-400 pl-5">
+                    Aplikasi mengirimkan paket raw vendor feature report langsung ke chip mikrokontroler SinoWealth pada Leobog Hi75c Pro. Harap jangan mencabut kabel USB saat proses penulisan konfigurasi sedang berlangsung.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-white flex items-center gap-1.5 text-xs text-zinc-200">
+                    <span>3. Proyek Komunitas Independen (Non-Afiliasi)</span>
+                  </div>
+                  <p className="text-zinc-400 pl-5">
+                    OpenLeobog merupakan perangkat lunak open-source independen yang dikembangkan oleh komunitas dan tidak memiliki afiliasi resmi dengan merek dagang LEOBOG atau SinoWealth.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="font-bold text-white flex items-center gap-1.5 text-xs text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>4. Keamanan &amp; Privasi Data (Zero Telemetry)</span>
+                  </div>
+                  <p className="text-zinc-400 pl-5">
+                    Aplikasi berjalan 100% di browser Anda (client-side). Tidak ada keystroke logger, telemetry, atau data pengetikan keyboard yang dikirim ke server luar mana pun.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mandatory Checkbox Agreement */}
+            <div
+              onClick={() => {
+                setHasAgreed(!hasAgreed);
+                setShowAgreementWarning(false);
+              }}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                hasAgreed
+                  ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-200'
+                  : showAgreementWarning
+                  ? 'bg-red-500/10 border-red-500/50 text-red-300 animate-pulse'
+                  : 'bg-[#181818] border-[#2c2c2c] text-zinc-300 hover:border-zinc-500'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={hasAgreed}
+                onChange={() => {}} // Handled by container click
+                className="mt-0.5 w-4 h-4 rounded border-zinc-600 text-cyan-500 focus:ring-0 cursor-pointer accent-cyan-400 shrink-0"
+              />
+              <div className="text-left text-xs leading-snug">
+                <span className="font-semibold text-white">
+                  Saya telah membaca, memahami, dan menyetujui
+                </span>{' '}
+                seluruh Syarat &amp; Ketentuan serta Disclaimer penggunaan aplikasi di atas.
+              </div>
+            </div>
+
+            {showAgreementWarning && !hasAgreed && (
+              <p className="text-[11px] text-red-400 font-medium text-center">
+                ⚠️ Harap centang persetujuan Syarat &amp; Ketentuan terlebih dahulu untuk melanjutkan.
+              </p>
+            )}
+
+            {/* Mode Selection Options */}
+            <div className="space-y-2 pt-1 text-left">
+              <div className="text-[11px] font-mono tracking-wider text-zinc-400 uppercase font-semibold">
+                Pilih Mode Penggunaan:
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Guest Mode Button */}
+                <button
+                  type="button"
+                  onClick={handleChooseGuest}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between space-y-2 group cursor-pointer ${
+                    hasAgreed
+                      ? 'bg-[#171717] hover:bg-[#1f1f1f] border-[#2e2e2e] hover:border-cyan-500/50 shadow-sm'
+                      : 'bg-[#141414] border-[#222222] opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-300 group-hover:text-cyan-400 transition-colors">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                      Recommended
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
+                      Guest Mode
+                    </div>
+                    <p className="text-[10px] text-zinc-400 leading-tight mt-0.5">
+                      Mode aman (Read Only). Fitur modifikasi hardware terkunci dan tersembunyi.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Dev Mode Button */}
+                <button
+                  type="button"
+                  onClick={handleProceedToDev}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between space-y-2 group cursor-pointer ${
+                    hasAgreed
+                      ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/5 hover:from-amber-500/20 hover:to-orange-500/15 border-amber-500/30 hover:border-amber-500/60 shadow-sm'
+                      : 'bg-[#141414] border-[#222222] opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+                      <Unlock className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">
                       PIN Protected
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-snug">
-                    Full hardware access enabled (Key Remap, Software Stream BETA, Backup & Recovery BETA).
-                  </p>
-                </div>
-              </button>
-
-              {/* Guest Mode Button */}
-              <button
-                type="button"
-                onClick={handleChooseGuest}
-                className="w-full p-4 rounded-xl bg-[#181818] hover:bg-[#202020] border border-[#2a2a2a] hover:border-zinc-500 transition-all text-left group flex items-start gap-3 cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0 mt-0.5">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="space-y-0.5 min-w-0">
-                  <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                    <span>Guest Mode</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">
-                      Read Only
-                    </span>
+                  <div>
+                    <div className="text-xs font-bold text-amber-300">
+                      Dev Mode
+                    </div>
+                    <p className="text-[10px] text-zinc-400 leading-tight mt-0.5">
+                      Akses penulisan hardware penuh (Key Remap, Stream BETA, Backup/Restore).
+                    </p>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-snug">
-                    Safe testing mode. Flashing and hardware modification features are locked and hidden.
-                  </p>
-                </div>
-              </button>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
+          /* Step 2: PIN Verification for Dev Mode */
           <form onSubmit={handleVerifyPin} className="space-y-4">
             <button
               type="button"
               onClick={() => {
-                setStep('choose');
+                setStep('termsAndMode');
                 setErrorMsg(null);
               }}
               className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Mode Selection</span>
+              <span>Kembali ke Terms &amp; Pilihan Mode</span>
             </button>
 
             {/* Warning Banner */}
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-left space-y-1">
-              <div className="flex items-center gap-2 text-red-400 font-bold text-xs uppercase tracking-wider">
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left space-y-1">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Do With Your Own Risk</span>
+                <span>Developer Authorization</span>
               </div>
-              <p className="text-[11px] text-red-200/80 leading-relaxed">
-                Developer Mode grants direct hardware EEPROM write access. Enter the security authorization PIN to unlock:
+              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                Developer Mode memberikan akses penulisan langsung ke EEPROM hardware Leobog Hi75c Pro. Masukkan PIN keamanan untuk membuka akses:
               </p>
             </div>
 
             <div className="space-y-1.5 text-left">
               <label className="text-[11px] font-mono uppercase text-zinc-400 tracking-wider">
-                Enter Security PIN
+                Masukkan Security PIN
               </label>
               <input
                 type="password"
@@ -159,10 +278,10 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setStep('choose')}
+                onClick={() => setStep('termsAndMode')}
                 className="flex-1 py-2.5 rounded-xl bg-[#181818] hover:bg-[#202020] text-zinc-300 font-semibold text-xs border border-[#2a2a2a] transition-all cursor-pointer"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="submit"

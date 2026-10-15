@@ -200,6 +200,8 @@ export function App() {
           isConnected={hidState.isConnected}
           modifiedCount={hidState.modifiedCount}
           deviceName={hidState.deviceName}
+          userMode={userMode}
+          onOpenModeModal={() => setIsModeModalOpen(true)}
         />
 
         <main className="flex-1 px-10 pb-10 space-y-6 overflow-y-auto">
