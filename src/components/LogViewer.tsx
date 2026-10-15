@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Terminal, Trash2, Copy, Check, Activity } from 'lucide-react';
+import { Trash2, Copy, Check, Activity } from 'lucide-react';
 
 interface LogViewerProps {
   logs: string[];
@@ -38,8 +38,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ logs, onClear }) => {
               LIVE STREAM
             </span>
           </div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-base font-bold text-white">
             Diagnostics & WebHID Packet Log
           </h3>
           <p className="text-xs text-zinc-400">

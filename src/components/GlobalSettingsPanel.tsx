@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sliders, Moon, Zap, Touchpad, CheckCircle2, AlertTriangle, RotateCcw, Save } from 'lucide-react';
+import { Moon, Zap, Touchpad, CheckCircle2, AlertTriangle, RotateCcw, Save } from 'lucide-react';
 import { hardwareSettingsService, type HardwareGlobalSettings } from '../services/hardwareSettingsService';
 
 interface GlobalSettingsPanelProps {
@@ -77,9 +77,8 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
               </span>
               <span className="text-xs text-zinc-500 font-mono">Tap • Sleep • Debounce</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
-              <Sliders className="w-6 h-6 text-cyan-400" />
-              <span>Hardware & Performance Settings</span>
+            <h2 className="text-2xl font-black tracking-tight text-white">
+              Hardware & Performance Settings
             </h2>
             <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
               Configure internal microcontroller parameters for Leobog Hi75c Pro to control Tap sensitivity, wireless Sleep power-saving timers, and mechanical switch Debounce filters.
