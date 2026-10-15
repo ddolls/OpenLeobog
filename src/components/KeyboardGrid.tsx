@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { LEOBOG_HI75C_LAYOUT, HID_USAGES, formatComboLabel, type KeyDefinition, type KeyRecord, type RgbConfigState } from '../types/hid';
-import { inputManager } from '../services/inputManager';
+import { inputManager, type KnobState } from '../services/inputManager';
 import { rgbService } from '../services/rgbService';
 
 interface KeyboardGridProps {
@@ -16,17 +16,22 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
 }) => {
   const rows = [0, 1, 2, 3, 4, 5];
   const [pressedIndices, setPressedIndices] = useState<Set<number>>(new Set());
+  const [knobState, setKnobState] = useState<KnobState>(inputManager.getKnobState());
   const [rgbState, setRgbState] = useState<RgbConfigState>(rgbService.getState());
 
   useEffect(() => {
     const unsubscribeInput = inputManager.subscribe((pressed) => {
       setPressedIndices(new Set(pressed));
     });
+    const unsubscribeKnob = inputManager.subscribeKnob((knob) => {
+      setKnobState(knob);
+    });
     const unsubscribeRgb = rgbService.subscribe((state) => {
       setRgbState(state);
     });
     return () => {
       unsubscribeInput();
+      unsubscribeKnob();
       unsubscribeRgb();
     };
   }, []);
@@ -53,23 +58,66 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
               const isFnKey = keyDef.matrixIdx === 53;
 
               if (keyDef.isKnob) {
+                const isKnobActive = isPressed || knobState.isActive;
                 return (
                   <div
                     key={keyDef.matrixIdx}
                     style={{ left: `${keyDef.col * 44}px`, width: '38px' }}
-                    className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-pointer group"
-                    onClick={() => onSelectKey(keyDef.matrixIdx)}
+                    className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-pointer group select-none"
+                    onClick={() => {
+                      onSelectKey(keyDef.matrixIdx);
+                      inputManager.triggerKnobAction('mute');
+                    }}
+                    onWheel={(e) => {
+                      e.preventDefault();
+                      if (e.deltaY < 0) {
+                        inputManager.triggerKnobAction('up');
+                      } else {
+                        inputManager.triggerKnobAction('down');
+                      }
+                    }}
+                    title="Rotary Volume Knob (Rotate: Vol +/- | Click: Mute)"
                   >
+                    {/* Action Toast / Mini Floating Badge */}
+                    {knobState.lastAction && (
+                      <div className="absolute -top-6 px-1.5 py-0.5 rounded bg-cyan-950/90 border border-cyan-500/50 text-[9px] font-mono font-bold text-cyan-300 shadow-[0_0_10px_#06b6d4] pointer-events-none animate-pulse whitespace-nowrap z-30">
+                        {knobState.lastAction === 'up' && 'VOL ▲'}
+                        {knobState.lastAction === 'down' && 'VOL ▼'}
+                        {knobState.lastAction === 'mute' && 'MUTE'}
+                      </div>
+                    )}
+
+                    {/* Outer Rotating Metallic Ring */}
                     <div
-                      className={`w-9 h-9 rounded-full bg-[#181818] border border-[#2a2a2a] group-hover:border-zinc-400 flex items-center justify-center transition-all ${
-                        isPressed
-                          ? 'border-cyan-400 bg-[#162433] scale-95 shadow-[0_0_15px_#06b6d4]'
+                      style={{
+                        transform: `rotate(${knobState.rotation}deg) ${isKnobActive ? 'scale(0.92)' : 'scale(1)'}`,
+                        transition: 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      }}
+                      className={`relative w-9 h-9 rounded-full bg-gradient-to-b from-[#282828] to-[#121212] border flex items-center justify-center shadow-lg transition-all ${
+                        isKnobActive
+                          ? 'border-cyan-400 shadow-[0_0_18px_#06b6d4] bg-[#142333]'
                           : isSelected
                           ? 'border-white bg-[#222222] shadow-md'
-                          : ''
+                          : 'border-[#333333] group-hover:border-zinc-400'
                       }`}
                     >
-                      <div className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
+                      {/* Notch / Indicator Dot near outer rim */}
+                      <div
+                        className={`absolute top-1 w-1.5 h-1.5 rounded-full transition-colors ${
+                          isKnobActive
+                            ? 'bg-cyan-400 shadow-[0_0_8px_#06b6d4]'
+                            : 'bg-zinc-300 group-hover:bg-white'
+                        }`}
+                      />
+
+                      {/* Inner Cap Core */}
+                      <div className="w-4 h-4 rounded-full bg-[#181818] border border-[#2b2b2b] flex items-center justify-center">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                            isKnobActive ? 'bg-cyan-400' : 'bg-zinc-500'
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
                 );

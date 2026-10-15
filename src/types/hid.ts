@@ -118,6 +118,7 @@ export const DEFAULT_MATRIX_USAGES: Record<number, number> = {
   87: 0x4E, // PgDn
   88: 0x4D, // End (Matrix 88)
   89: 0x4F, // Right Arrow (Matrix 89)
+  99: 0xE2, // Rotary Volume Knob (Matrix 99)
 };
 
 // Decode 4-byte matrix record into logical HID usage (simple single-usage view)

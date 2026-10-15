@@ -113,6 +113,15 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   PageDown: 87,
   End: 88, // Physical End = Matrix 88
   ArrowRight: 89, // Physical Right Arrow = Matrix 89
+
+  // Media / Rotary Knob
+  AudioVolumeMute: 99,
+  VolumeMute: 99,
+  AudioVolumeUp: 99,
+  VolumeUp: 99,
+  AudioVolumeDown: 99,
+  VolumeDown: 99,
+  MediaPlayPause: 99,
 };
 
 // Friendly key display labels
@@ -137,7 +146,20 @@ export const FRIENDLY_KEY_NAMES: Record<string, string> = {
   PageUp: 'PgUp',
   PageDown: 'PgDn',
   End: 'End',
+  AudioVolumeMute: 'Mute',
+  VolumeMute: 'Mute',
+  AudioVolumeUp: 'Vol+',
+  VolumeUp: 'Vol+',
+  AudioVolumeDown: 'Vol-',
+  VolumeDown: 'Vol-',
+  MediaPlayPause: 'Play/Pause',
 };
+
+export interface KnobState {
+  rotation: number;
+  lastAction: 'up' | 'down' | 'mute' | 'press' | null;
+  isActive: boolean;
+}
 
 class InputManager {
   private pressedCodes = new Set<string>();
@@ -145,6 +167,10 @@ class InputManager {
   private listeners: ((pressed: Set<number>, codes: Set<string>) => void)[] = [];
   private historyListeners: ((history: KeyHistoryItem[]) => void)[] = [];
   private debugListeners: ((logs: DebugLogEntry[]) => void)[] = [];
+  private knobListeners: ((knob: KnobState) => void)[] = [];
+
+  private knobState: KnobState = { rotation: 0, lastAction: null, isActive: false };
+  private knobTimer: any = null;
 
   private history: KeyHistoryItem[] = [];
   private debugLogs: DebugLogEntry[] = [];
@@ -161,8 +187,27 @@ class InputManager {
         const target = e.target as HTMLElement;
         const isInputFocused = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
+        const rawCode = e.code || '';
+        const rawKey = e.key || '';
+        const isVolUp = rawCode === 'AudioVolumeUp' || rawCode === 'VolumeUp' || rawKey === 'AudioVolumeUp';
+        const isVolDown = rawCode === 'AudioVolumeDown' || rawCode === 'VolumeDown' || rawKey === 'AudioVolumeDown';
+        const isVolMute = rawCode === 'AudioVolumeMute' || rawCode === 'VolumeMute' || rawKey === 'AudioVolumeMute' || rawCode === 'MediaPlayPause' || rawKey === 'MediaPlayPause';
+
         if (!isInputFocused) {
           e.preventDefault();
+        }
+
+        if (isVolUp) {
+          this.triggerKnobAction('up');
+          return;
+        }
+        if (isVolDown) {
+          this.triggerKnobAction('down');
+          return;
+        }
+        if (isVolMute) {
+          this.triggerKnobAction('mute');
+          return;
         }
 
         if (e.repeat) return;
@@ -190,6 +235,53 @@ class InputManager {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.releaseAllKeys();
     });
+  }
+
+  public triggerKnobAction(action: 'up' | 'down' | 'mute') {
+    if (action === 'up') {
+      this.knobState.rotation += 18;
+      this.knobState.lastAction = 'up';
+      this.knobState.isActive = true;
+      this.pressedCodes.add('AudioVolumeUp');
+      this.logDebug('DOM', 'AudioVolumeUp', 'Vol+', 99);
+    } else if (action === 'down') {
+      this.knobState.rotation -= 18;
+      this.knobState.lastAction = 'down';
+      this.knobState.isActive = true;
+      this.pressedCodes.add('AudioVolumeDown');
+      this.logDebug('DOM', 'AudioVolumeDown', 'Vol-', 99);
+    } else {
+      this.knobState.lastAction = 'mute';
+      this.knobState.isActive = true;
+      this.pressedCodes.add('AudioVolumeMute');
+      this.logDebug('DOM', 'AudioVolumeMute', 'Mute', 99);
+    }
+
+    this.pressedMatrixIndices.add(99);
+    this.notify();
+
+    if (this.knobTimer) clearTimeout(this.knobTimer);
+    this.knobTimer = setTimeout(() => {
+      this.pressedMatrixIndices.delete(99);
+      this.pressedCodes.delete('AudioVolumeUp');
+      this.pressedCodes.delete('AudioVolumeDown');
+      this.pressedCodes.delete('AudioVolumeMute');
+      this.knobState.isActive = false;
+      this.knobState.lastAction = null;
+      this.notify();
+    }, 280);
+  }
+
+  public getKnobState(): KnobState {
+    return { ...this.knobState };
+  }
+
+  public subscribeKnob(fn: (knob: KnobState) => void) {
+    this.knobListeners.push(fn);
+    fn({ ...this.knobState });
+    return () => {
+      this.knobListeners = this.knobListeners.filter(l => l !== fn);
+    };
   }
 
   public handleKeyDown(code: string, key: string = '') {
@@ -224,6 +316,8 @@ class InputManager {
   public releaseAllKeys() {
     this.pressedCodes.clear();
     this.pressedMatrixIndices.clear();
+    this.knobState.isActive = false;
+    this.knobState.lastAction = null;
     this.notify();
   }
 
@@ -234,6 +328,19 @@ class InputManager {
         const { reportId, data } = e;
         const rawBytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
         const hex = Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+
+        // Check if report contains consumer control / volume events
+        const hasVolUp = rawBytes.includes(0xE9) || (reportId === 2 && (rawBytes[0] & 0x01 || rawBytes[1] & 0x01));
+        const hasVolDown = rawBytes.includes(0xEA) || (reportId === 2 && (rawBytes[0] & 0x02 || rawBytes[1] & 0x02));
+        const hasMute = rawBytes.includes(0xE2) || rawBytes.includes(0xCD) || (reportId === 2 && (rawBytes[0] & 0x04 || rawBytes[1] & 0x04));
+
+        if (hasVolUp) {
+          this.triggerKnobAction('up');
+        } else if (hasVolDown) {
+          this.triggerKnobAction('down');
+        } else if (hasMute) {
+          this.triggerKnobAction('mute');
+        }
 
         this.logDebug('WebHID', 'HID_REPORT', `Report ${reportId}`, null, reportId, hex);
       });
@@ -314,6 +421,7 @@ class InputManager {
 
   private notify() {
     this.listeners.forEach(fn => fn(this.pressedMatrixIndices, this.pressedCodes));
+    this.knobListeners.forEach(fn => fn({ ...this.knobState }));
   }
 
   public setTestMode(active: boolean) {
