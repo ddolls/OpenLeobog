@@ -84,7 +84,7 @@ class HardwareSettingsService {
     if (!dev || !dev.opened) {
       return {
         success: false,
-        message: 'Keyboard tidak terhubung. Harap tancapkan kabel USB dan hubungkan WebHID terlebih dahulu.',
+        message: 'Device is not connected. Please connect via USB cable and initialize WebHID first.',
       };
     }
 
@@ -111,14 +111,14 @@ class HardwareSettingsService {
       this.isApplying = false;
       return {
         success: true,
-        message: 'Pengaturan Tap, Sleep, dan Debounce berhasil disimpan ke memori keyboard!',
+        message: 'Tap, Sleep, and Debounce settings successfully saved to keyboard memory!',
       };
     } catch (err: any) {
       webhid.log(`[Hardware Settings] Write error: ${err.message}`);
       this.isApplying = false;
       return {
         success: false,
-        message: `Gagal menulis ke hardware: ${err.message}. Pastikan keyboard dalam mode Kabel USB.`,
+        message: `Failed to write to hardware: ${err.message}. Please verify the keyboard is in Wired USB mode.`,
       };
     }
   }

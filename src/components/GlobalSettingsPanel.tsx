@@ -41,9 +41,9 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
   };
 
   const handleReset = () => {
-    if (confirm('Kembalikan semua pengaturan Tap, Sleep, dan Debounce ke default pabrik?')) {
+    if (confirm('Reset all Tap, Sleep, and Debounce settings to factory defaults?')) {
       hardwareSettingsService.resetToDefaults();
-      setStatusMsg({ text: 'Pengaturan direset ke default pabrik.', isError: false });
+      setStatusMsg({ text: 'Settings reset to factory defaults.', isError: false });
       setTimeout(() => setStatusMsg(null), 4000);
     }
   };
@@ -51,15 +51,15 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
   const getDebounceDescription = (stage: number) => {
     switch (stage) {
       case 1:
-        return 'Stage 1: Ultra Fast (2ms) - Latensi paling responsif untuk gaming kompetitif, pastikan switch dalam kondisi prima.';
+        return 'Stage 1: Ultra Fast (2ms) - Maximum responsive latency for competitive gaming. Ensure switches are in optimal condition.';
       case 2:
-        return 'Stage 2: Fast Response (5ms) - Respon cepat dengan sedikit perlindungan chatter.';
+        return 'Stage 2: Fast Response (5ms) - Quick response with slight chatter protection.';
       case 3:
-        return 'Stage 3: Balanced (8ms, Default Pabrik) - Keseimbangan optimal antara kecepatan gaming dan keandalan mengetik.';
+        return 'Stage 3: Balanced (8ms, Factory Default) - Optimal balance between gaming latency and typing reliability.';
       case 4:
-        return 'Stage 4: Safe Stability (10ms) - Mencegah potensi input ganda jika switch mulai sensitif.';
+        return 'Stage 4: Safe Stability (10ms) - Prevents unintended double-typing on sensitive switches.';
       case 5:
-        return 'Stage 5: Anti-Chatter Max (15ms) - Proteksi maksimal untuk switch yang mulai aus/kotor agar tidak terjadi double-typing.';
+        return 'Stage 5: Anti-Chatter Max (15ms) - Maximum protection for worn or dusty switches to eliminate double-typing chatter.';
       default:
         return `Stage ${stage}`;
     }
@@ -82,7 +82,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
               <span>Hardware & Performance Settings</span>
             </h2>
             <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
-              Konfigurasi parameter internal microcontroller Leobog Hi75c Pro untuk mengatur sensitivitas Tap, manajemen daya Sleep nirkabel, dan filter Debounce switch mekanikal.
+              Configure internal microcontroller parameters for Leobog Hi75c Pro to control Tap sensitivity, wireless Sleep power-saving timers, and mechanical switch Debounce filters.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
               className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Reset Default</span>
+              <span>Reset Defaults</span>
             </button>
 
             <button
@@ -103,7 +103,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
               className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/20 cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Menyimpan...' : 'Save to Keyboard'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save to Keyboard'}</span>
             </button>
           </div>
         </div>
@@ -160,7 +160,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
             </div>
 
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Membedakan input antara ketukan cepat (tap) dan tombol yang ditahan (hold) untuk memicu fungsi ganda pada tombol tertentu.
+              Distinguish between a quick tap and a sustained hold to trigger dual-function secondary actions on designated keys.
             </p>
 
             {/* Tap Slider */}
@@ -223,7 +223,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
             </div>
 
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Dalam mode nirkabel (2.4G & Bluetooth), keyboard akan otomatis tidur setelah waktu jeda tertentu untuk menghemat daya baterai.
+              In wireless modes (2.4G & Bluetooth), the keyboard will automatically enter sleep mode after an idle interval to conserve battery life.
             </p>
 
             {/* Sleep Presets / Select */}
@@ -231,7 +231,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
               <div className="flex items-center justify-between text-xs font-mono">
                 <span className="text-zinc-400">Idle Duration:</span>
                 <span className="font-bold text-cyan-400">
-                  {settings.sleepEnabled ? `${Math.round(settings.sleepTimeoutSeconds / 60)} Menit` : 'Always Awake'}
+                  {settings.sleepEnabled ? `${Math.round(settings.sleepTimeoutSeconds / 60)} Min` : 'Always Awake'}
                 </span>
               </div>
 
@@ -251,7 +251,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
           </div>
 
           <div className="bg-[#181818] border border-[#242424] rounded-xl p-3 text-[11px] text-zinc-400 font-mono">
-            Mode Nirkabel: <strong className={settings.sleepEnabled ? 'text-emerald-400' : 'text-amber-400'}>{settings.sleepEnabled ? `Auto Sleep (${Math.round(settings.sleepTimeoutSeconds / 60)} Min)` : 'Always Awake (Boros Baterai)'}</strong>
+            Wireless Mode: <strong className={settings.sleepEnabled ? 'text-emerald-400' : 'text-amber-400'}>{settings.sleepEnabled ? `Auto Sleep (${Math.round(settings.sleepTimeoutSeconds / 60)} Min)` : 'Always Awake (Higher Battery Usage)'}</strong>
           </div>
         </div>
 
@@ -275,7 +275,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
             </div>
 
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Mengatur filter jeda debounce switch mekanikal untuk meminimalkan latensi input saat bermain game atau mencegah tombol dobel.
+              Adjust the mechanical switch debouncing filter delay to minimize input latency for gaming or eliminate double-typing chatter.
             </p>
 
             {/* Debounce Stage Slider */}
