@@ -29,6 +29,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'logs', label: 'Diagnostics', icon: Terminal },
   ];
 
+  const displayDeviceName =
+    !deviceName || deviceName.toLowerCase() === 'gaming keyboard'
+      ? 'LEOBOG Hi75c Pro'
+      : deviceName;
+
   return (
     <aside className="w-60 bg-[#070707] border-r border-[#181818] flex flex-col justify-between p-6 shrink-0 min-h-screen">
       <div className="space-y-8">
@@ -58,12 +63,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               />
               <span className="text-xs font-semibold text-white group-hover:text-white truncate">
-                {isConnected ? deviceName : 'LEOBOG Hi75c Pro'}
+                {isConnected ? displayDeviceName : 'LEOBOG Hi75c Pro'}
               </span>
             </div>
 
             <p className="text-[11px] text-zinc-400 pl-4 font-normal">
-              {isConnected ? `${deviceName} - Connected` : 'Click to Connect'}
+              {isConnected ? `${displayDeviceName} - Connected` : 'Click to Connect'}
             </p>
           </div>
         </div>

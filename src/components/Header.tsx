@@ -14,7 +14,7 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName }) => {
           Mech Keyboard Configurator
         </p>
         <h1 className="text-5xl font-extrabold tracking-tight text-white">
-          {deviceName || 'LEOBOG Hi75c Pro'}
+          {(!deviceName || deviceName.toLowerCase() === 'gaming keyboard') ? 'LEOBOG Hi75c Pro' : deviceName}
         </h1>
       </div>
 

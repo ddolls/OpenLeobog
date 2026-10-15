@@ -95,14 +95,20 @@ class WebHIDController {
         await this.device.open();
       }
 
-      const devName = this.device.productName || 'Leobog Hi75 C Pro';
+      const rawName = (this.device.productName || '').trim();
+      // SinoWealth hardware USB descriptor returns generic "Gaming Keyboard"
+      // Map to official product name "LEOBOG Hi75c Pro"
+      const devName = (!rawName || rawName.toLowerCase() === 'gaming keyboard')
+        ? 'LEOBOG Hi75c Pro'
+        : rawName;
+
       const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
       const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
 
-      const isWireless = devName.toLowerCase().includes('2.4g') ||
-                         devName.toLowerCase().includes('dongle') ||
-                         devName.toLowerCase().includes('receiver') ||
-                         devName.toLowerCase().includes('wireless');
+      const isWireless = rawName.toLowerCase().includes('2.4g') ||
+                         rawName.toLowerCase().includes('dongle') ||
+                         rawName.toLowerCase().includes('receiver') ||
+                         rawName.toLowerCase().includes('wireless');
       const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
 
       this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Firmware: ${fwVersion}`);
