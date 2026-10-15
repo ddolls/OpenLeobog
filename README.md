@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> ### 🌟 Upstream & Core Origins Attribution
+> ### Upstream & Core Origins Attribution
 > **All the code in this repository originates from and is based on the [openaula](https://github.com/not-ayan/openaula) project created by [Ayan Biswas](https://github.com/not-ayan).**
 > - **OpenAula Repository**: [https://github.com/not-ayan/openaula](https://github.com/not-ayan/openaula)
 > - **Ayan Biswas GitHub**: [https://github.com/not-ayan](https://github.com/not-ayan)
