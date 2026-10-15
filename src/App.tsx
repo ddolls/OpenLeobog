@@ -9,6 +9,7 @@ import { Overview } from './components/Overview';
 import { LiveInputWidget } from './components/LiveInputWidget';
 import { FnWinRepairWidget } from './components/FnWinRepairWidget';
 import { RgbControlPanel } from './components/RgbControlPanel';
+import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ModeSelectionModal } from './components/ModeSelectionModal';
 import { SocialModal } from './components/SocialModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
@@ -238,6 +239,13 @@ export function App() {
 
           {activeTab === 'rgb' && (
             <RgbControlPanel
+              isConnected={hidState.isConnected}
+              isDevMode={userMode === 'dev'}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <GlobalSettingsPanel
               isConnected={hidState.isConnected}
               isDevMode={userMode === 'dev'}
             />

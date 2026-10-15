@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ShieldAlert, Terminal, Palette } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -23,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'rgb', label: 'RGB Lighting', icon: Palette },
+    { id: 'settings', label: 'Hardware Settings', icon: Sliders },
     ...(userMode === 'dev'
       ? [{ id: 'backup', label: 'Backup & Recovery (BETA)', icon: ShieldAlert }]
       : []),
