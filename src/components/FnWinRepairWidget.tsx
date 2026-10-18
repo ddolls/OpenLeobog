@@ -16,10 +16,10 @@ export const FnWinRepairWidget: React.FC<FnWinRepairWidgetProps> = ({ onRefresh,
     setStatusMsg('Resetting Windows key (Matrix 11) to Left Win (0xE3)...');
     const success = await webhid.writeKeyRemap(11, 0xE3);
     if (success) {
-      setStatusMsg('✓ Windows key restored (Matrix 11 -> Left Win 0xE3). If still unresponsive, press Fn + Win on physical keyboard to turn off hardware Win Lock!');
+      setStatusMsg('Windows key restored (Matrix 11 -> Left Win 0xE3). If still unresponsive, press Fn + Win on physical keyboard to turn off hardware Win Lock.');
       if (onRefresh) onRefresh();
     } else {
-      setStatusMsg('❌ Failed to write Windows key remap.');
+      setStatusMsg('Failed to write Windows key remap.');
     }
   };
 
@@ -29,10 +29,10 @@ export const FnWinRepairWidget: React.FC<FnWinRepairWidgetProps> = ({ onRefresh,
     setStatusMsg('Surgically restoring Fn key (Matrix 53 -> 13 00 00 00)...');
     const success = await webhid.surgicalFnRecovery();
     if (success) {
-      setStatusMsg('✓ Fn key surgically restored (Matrix 53 -> [13, 0, 0, 0])!');
+      setStatusMsg('Fn key surgically restored (Matrix 53 -> [13, 0, 0, 0]).');
       if (onRefresh) onRefresh();
     } else {
-      setStatusMsg('❌ Failed to restore Fn key.');
+      setStatusMsg('Failed to restore Fn key.');
     }
   };
 
@@ -43,7 +43,7 @@ export const FnWinRepairWidget: React.FC<FnWinRepairWidgetProps> = ({ onRefresh,
     const winOk = await webhid.writeKeyRemap(11, 0xE3);
     const altOk = await webhid.writeKeyRemap(17, 0xE2);
     if (winOk && altOk) {
-      setStatusMsg('✓ Windows (0xE3) & Left Alt (0xE2) reset to factory defaults! If Win/Alt still feel swapped, press Fn + W on your keyboard to switch back to Windows Mode.');
+      setStatusMsg('Windows (0xE3) & Left Alt (0xE2) reset to factory defaults. If Win/Alt still feel swapped, press Fn + W on your keyboard to switch back to Windows Mode.');
       if (onRefresh) onRefresh();
     }
   };

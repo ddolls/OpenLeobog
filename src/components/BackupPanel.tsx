@@ -72,7 +72,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
   // 4. Restore Full Raw Dump (Advanced / Dangerous)
   const handleRestoreFullRaw = async () => {
     if (!selectedFile) return;
-    if (!confirm('⛔ WARNING: Restoring full 1024-byte raw configuration may overwrite OS mode or secondary tables. Proceed?')) return;
+    if (!confirm('WARNING: Restoring full 1024-byte raw configuration may overwrite OS mode or secondary tables. Proceed?')) return;
 
     try {
       const text = await selectedFile.text();
@@ -236,7 +236,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
           <div className="p-4 rounded-xl bg-[#161616] border border-[#262626] space-y-3">
             <div className="flex items-center justify-between">
               <span className="font-bold text-amber-400 flex items-center gap-1.5">
-                ⚠ Surgical Fn Recovery
+                Surgical Fn Recovery
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
                 Recommended
@@ -262,7 +262,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
           <div className="p-4 rounded-xl bg-[#161616] border border-[#262626] space-y-3">
             <div className="flex items-center justify-between">
               <span className="font-bold text-rose-400 flex items-center gap-1.5">
-                ⛔ Full Raw Configuration
+                Full Raw Configuration
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
                 Advanced / Dangerous

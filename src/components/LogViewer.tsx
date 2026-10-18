@@ -94,8 +94,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({ logs, onClear }) => {
           </div>
         ) : (
           logs.map((log, i) => {
-            const isError = log.includes('ERROR') || log.includes('Failed') || log.includes('❌');
-            const isSuccess = log.includes('SUCCESS') || log.includes('VERIFIED') || log.includes('RESTORED') || log.includes('✓');
+            const isError = log.includes('ERROR') || log.includes('Failed');
+            const isSuccess = log.includes('SUCCESS') || log.includes('VERIFIED') || log.includes('RESTORED');
             const isTx = log.includes('TX') || log.includes('Writing') || log.includes('Write') || log.includes('Sent');
 
             return (

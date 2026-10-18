@@ -607,7 +607,7 @@ class RgbControllerService {
     }
   }
 
-  // Send Direct Mode LED Frame (transmits both Planar CMD 0x06 and Direct CMD 0x08 for 122 keys)
+  // Send Direct Mode LED Frame via native SinoWealth Planar CMD 0x06 (122 keys)
   public async sendDirectFrame(colors: (RGBColor | null)[]): Promise<boolean> {
     if (!this.device || !this.device.opened || this.isSendingFrame) {
       return false;
@@ -615,7 +615,7 @@ class RgbControllerService {
 
     this.isSendingFrame = true;
     try {
-      // 1. Send Planar Frame (CMD 0x06) - native hardware per-key command supported across all LEOBOG firmwares
+      // Send Planar Frame (CMD 0x06) - native hardware per-key command supported across SinoWealth firmwares
       const planarPkt = new Uint8Array(519);
       planarPkt[0] = 0x06; // CMD: LED_PLANAR
       planarPkt[1] = 0x00;
@@ -637,25 +637,6 @@ class RgbControllerService {
       }
 
       await this.device.sendFeatureReport(6, planarPkt);
-
-      // 2. Also send Direct Frame (CMD 0x08) - OpenRGB direct mode interleaved format
-      const directPkt = new Uint8Array(519);
-      directPkt[0] = 0x08; // CMD: SET_LEDS_DIRECT
-      directPkt[1] = 0x00;
-      directPkt[2] = 0x00;
-      directPkt[3] = 0x01;
-      directPkt[4] = 0x00;
-      directPkt[5] = 0x7a; // 122 keys
-      directPkt[6] = 0x01;
-
-      for (let i = 0; i < 122; i++) {
-        const c = colors[i] || { r: 0, g: 0, b: 0 };
-        directPkt[7 + i * 3] = c.r;
-        directPkt[7 + i * 3 + 1] = c.g;
-        directPkt[7 + i * 3 + 2] = c.b;
-      }
-
-      await this.device.sendFeatureReport(6, directPkt);
       return true;
     } catch (err: any) {
       webhid.log(`[RGB Frame Error] ${err.message}`);
@@ -694,31 +675,6 @@ class RgbControllerService {
       isDirectStreaming: true,
       customMode: false,
     });
-
-    if (this.device && this.device.opened) {
-      try {
-        const freshConfig = await this.readDeviceConfig(true);
-        const cfgPkt = new Uint8Array(519);
-        cfgPkt[0] = 0x04;
-        cfgPkt[3] = 0x01;
-        cfgPkt[5] = 0x80;
-
-        const baseline = freshConfig || this.cachedConfig;
-        if (baseline) {
-          const copyLen = Math.min(baseline.length - 7, 519 - 7);
-          for (let i = 0; i < copyLen; i++) {
-            cfgPkt[7 + i] = baseline[7 + i];
-          }
-        }
-
-        cfgPkt[16] = 0x01;
-        cfgPkt[17] = 0x12; // effect 18 (custom render mode)
-        await this.device.sendFeatureReport(6, cfgPkt);
-        await new Promise((r) => setTimeout(r, 25));
-      } catch (err: any) {
-        webhid.log(`[RGB Stream Init Warning] ${err.message}`);
-      }
-    }
     webhid.log(`[RGB] Ready for external streaming: ${sessionName}`);
   }
 

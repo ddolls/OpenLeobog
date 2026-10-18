@@ -236,7 +236,7 @@ class ScreenSyncService {
   }
 
   private startLoop() {
-    const loopIntervalMs = 50; // ~20 FPS ideal for USB Feature Report throughput without congestion
+    const loopIntervalMs = 90; // ~11 FPS: optimal stability for USB HID Control Pipe throughput
     this.timerId = setInterval(() => {
       this.processFrame();
     }, loopIntervalMs);
