@@ -15,7 +15,6 @@ import { SocialModal } from './components/SocialModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
 import { parseKeyRecordUsage, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
-import { batteryService } from './services/batteryService';
 import { inputManager } from './services/inputManager';
 import { rgbService } from './services/rgbService';
 
@@ -82,7 +81,6 @@ export function App() {
     if (success && (webhid as any).device) {
       inputManager.attachWebHIDDevice((webhid as any).device);
       rgbService.attachDevice((webhid as any).device);
-      batteryService.attachDevice((webhid as any).device);
     }
   };
 

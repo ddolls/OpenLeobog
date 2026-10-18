@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { batteryService, type BatteryState } from '../services/batteryService';
-import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb } from 'lucide-react';
+import React from 'react';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -11,25 +9,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMode = 'guest', onOpenModeModal }) => {
-  const [batteryState, setBatteryState] = useState<BatteryState>(batteryService.getState());
-
-  useEffect(() => {
-    const unsub = batteryService.subscribe((s) => {
-      setBatteryState(s);
-    });
-    return unsub;
-  }, []);
-
-  const getBatteryIcon = () => {
-    if (batteryState.isCharging) {
-      return <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />;
-    }
-    if (batteryState.percentage <= 20) {
-      return <BatteryWarning className="w-3.5 h-3.5 text-rose-400 animate-pulse" />;
-    }
-    return <Battery className="w-3.5 h-3.5 text-cyan-400" />;
-  };
-
   return (
     <header className="px-10 pt-8 pb-6 flex items-start justify-between bg-[#0a0a0a]">
       <div className="space-y-1">
@@ -41,37 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
         </h1>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        {/* Battery Telemetry Badge */}
-        {isConnected && (
-          <div
-            title={`Battery Status: ${batteryState.statusText}\nEstimated Runtime: ~${batteryState.estimatedHoursRemaining} hrs\nVoltage: ${batteryState.voltageEstimate}V (4000mAh LiPo)`}
-            className={`px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-default select-none ${
-              batteryState.isCharging
-                ? 'bg-emerald-950/40 border-emerald-800/80 text-emerald-300'
-                : batteryState.percentage <= 20
-                ? 'bg-rose-950/40 border-rose-800/80 text-rose-300'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-            }`}
-          >
-            {getBatteryIcon()}
-            <span className="font-mono font-bold text-[11px]">{batteryState.percentage}%</span>
-            <span className="text-[10px] text-zinc-500 flex items-center gap-1 font-mono">
-              {batteryState.isWireless ? (
-                <>
-                  <Wifi className="w-3 h-3 text-cyan-400" />
-                  <span>2.4G</span>
-                </>
-              ) : (
-                <>
-                  <Usb className="w-3 h-3 text-emerald-400" />
-                  <span>USB</span>
-                </>
-              )}
-            </span>
-          </div>
-        )}
-
+      <div className="flex items-center gap-3 pt-2">
         {/* Mode Indicator Badge */}
         {userMode !== 'none' && (
           <button
@@ -89,7 +38,6 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
           </button>
         )}
 
-        {/* HID Connection Indicator */}
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full ${isConnected

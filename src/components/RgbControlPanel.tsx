@@ -6,12 +6,6 @@ import {
   Power,
   RefreshCw,
   Lock,
-  Monitor,
-  Tv,
-  Sliders,
-  Play,
-  Square,
-  AlertCircle,
 } from 'lucide-react';
 import {
   LEOBOG_RGB_EFFECTS,
@@ -22,7 +16,6 @@ import {
   type KeyDefinition,
 } from '../types/hid';
 import { rgbService } from '../services/rgbService';
-import { screenSyncService, type ScreenSyncState } from '../services/screenSyncService';
 
 interface RgbControlPanelProps {
   isConnected: boolean;
@@ -31,19 +24,11 @@ interface RgbControlPanelProps {
 
 export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, isDevMode = false }) => {
   const [rgbState, setRgbState] = useState<RgbConfigState>(rgbService.getState());
-  const [screenSyncState, setScreenSyncState] = useState<ScreenSyncState>(screenSyncService.getState());
-  const [activeTab, setActiveTab] = useState<'effects' | 'perKey' | 'stream' | 'ambilight'>('effects');
+  const [activeTab, setActiveTab] = useState<'effects' | 'perKey' | 'stream'>('effects');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [brushColor, setBrushColor] = useState<string>('#00e5ff');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [hexInput, setHexInput] = useState<string>(rgbState.staticColor?.toUpperCase() || '#00E5FF');
-
-  useEffect(() => {
-    const unsubScreen = screenSyncService.subscribe((s) => {
-      setScreenSyncState(s);
-    });
-    return unsubScreen;
-  }, []);
 
   useEffect(() => {
     const unsubscribe = rgbService.subscribe((state) => {
@@ -348,21 +333,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
             }`}
           >
             Per-Key RGB Painter
-          </button>
-
-          <button
-            onClick={() => setActiveTab('ambilight')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
-              activeTab === 'ambilight'
-                ? 'bg-white text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-[#181818]'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Screen Sync Ambilight</span>
-            {screenSyncState.isActive && (
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-            )}
           </button>
 
           <button
@@ -842,208 +812,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB: SCREEN SYNC (AMBILIGHT MODE)                                         */}
-      {/* ========================================================================= */}
-      {activeTab === 'ambilight' && (
-        <div className="space-y-6">
-          <div className="bg-[#101010] border border-[#222222] rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-cyan-950/80 border border-cyan-800 text-cyan-300">
-                    Direct Streaming
-                  </span>
-                  <span className="text-xs text-zinc-500 font-mono">WebHID Command 0x08 • Dual Planar</span>
-                </div>
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <Monitor className="w-5 h-5 text-cyan-400" />
-                  Screen Sync Ambilight Engine
-                </h3>
-                <p className="text-xs text-zinc-400 max-w-xl leading-relaxed">
-                  Synchronize your Leobog Hi75c Pro keyboard backlight in real-time with movies, games, or your desktop display. Frames are computed in-browser and transmitted directly to the keyboard's LED controller at ~20 FPS.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {screenSyncState.isActive ? (
-                  <button
-                    onClick={() => screenSyncService.stop()}
-                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
-                  >
-                    <Square className="w-4 h-4 fill-current" />
-                    <span>Stop Ambilight</span>
-                  </button>
-                ) : (
-                  <button
-                    disabled={!isConnected}
-                    onClick={() => screenSyncService.start()}
-                    className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Start Screen Sync</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {screenSyncState.error && (
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/80 flex items-center gap-2.5 text-xs text-rose-300">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Screen capture error: {screenSyncState.error}</span>
-              </div>
-            )}
-
-            {/* Live Streaming Status Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="bg-[#151515] border border-[#242424] rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-mono text-zinc-500 uppercase">Stream Status</div>
-                  <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${screenSyncState.isActive ? 'bg-cyan-400 animate-ping' : 'bg-zinc-600'}`} />
-                    <span>{screenSyncState.isActive ? 'Live Streaming' : 'Standby'}</span>
-                  </div>
-                </div>
-                <Tv className="w-5 h-5 text-zinc-600" />
-              </div>
-
-              <div className="bg-[#151515] border border-[#242424] rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-mono text-zinc-500 uppercase">Transmit Framerate</div>
-                  <div className="text-sm font-bold text-cyan-300 mt-1">
-                    {screenSyncState.isActive ? `${screenSyncState.fps} FPS` : '0 FPS'}
-                  </div>
-                </div>
-                <div className="text-[11px] font-mono text-zinc-500">USB Limit: 25 FPS</div>
-              </div>
-
-              <div className="bg-[#151515] border border-[#242424] rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-mono text-zinc-500 uppercase">Dominant Screen Color</div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
-                    {screenSyncState.currentDominantColor}
-                  </div>
-                </div>
-                <div
-                  className="w-6 h-6 rounded-lg border border-white/20 shadow-md"
-                  style={{ backgroundColor: screenSyncState.currentDominantColor }}
-                />
-              </div>
-            </div>
-
-            {/* Ambilight Mode Selector Cards */}
-            <div className="space-y-3">
-              <div className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider">
-                Select Ambilight Mapping Mode
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                {[
-                  {
-                    id: 'full-matrix' as const,
-                    title: 'Full 75% Matrix Projection',
-                    desc: 'Every key is mapped to its exact proportional coordinate on your screen. Best for movies & games with distinct spatial elements.',
-                  },
-                  {
-                    id: 'ambient-zone' as const,
-                    title: '3-Zone Horizontal Spread',
-                    desc: 'Samples Left, Center, and Right screen thirds and smoothly blends gradients across keyboard columns.',
-                  },
-                  {
-                    id: 'average-glow' as const,
-                    title: 'Dominant Color Radiance',
-                    desc: 'Calculates the overall average screen tone and radiates smooth ambient illumination across the entire board.',
-                  },
-                ].map((m) => {
-                  const isSelected = screenSyncState.mode === m.id;
-                  return (
-                    <div
-                      key={m.id}
-                      onClick={() => screenSyncService.setMode(m.id)}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
-                        isSelected
-                          ? 'bg-cyan-950/30 border-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50'
-                          : 'bg-[#151515] border-[#222222] text-zinc-300 hover:border-zinc-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold">{m.title}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
-                      </div>
-                      <p className="text-[11px] text-zinc-400 leading-snug">{m.desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tuning Sliders: Saturation, Brightness, Smoothing */}
-            <div className="bg-[#151515] border border-[#242424] rounded-xl p-5 space-y-4">
-              <div className="text-xs font-mono font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                <span>LED Color &amp; Dynamic Tuning</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
-                {/* Saturation Boost */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300 font-medium">Saturation Boost</span>
-                    <span className="font-mono text-cyan-400 font-bold">{screenSyncState.saturationBoost.toFixed(1)}x</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="2.5"
-                    step="0.1"
-                    value={screenSyncState.saturationBoost}
-                    onChange={(e) => screenSyncService.setSaturationBoost(parseFloat(e.target.value))}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                  <p className="text-[10px] text-zinc-500">Enhances monitor colors to prevent washed-out LED tones.</p>
-                </div>
-
-                {/* Brightness */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300 font-medium">Ambilight Brightness</span>
-                    <span className="font-mono text-cyan-400 font-bold">{Math.round(screenSyncState.brightness * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.2"
-                    max="1.0"
-                    step="0.05"
-                    value={screenSyncState.brightness}
-                    onChange={(e) => screenSyncService.setBrightness(parseFloat(e.target.value))}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                  <p className="text-[10px] text-zinc-500">Overall LED intensity multiplier.</p>
-                </div>
-
-                {/* Smoothing */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300 font-medium">Transition Smoothing</span>
-                    <span className="font-mono text-cyan-400 font-bold">{Math.round(screenSyncState.smoothing * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="0.9"
-                    step="0.05"
-                    value={screenSyncState.smoothing}
-                    onChange={(e) => screenSyncService.setSmoothing(parseFloat(e.target.value))}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                  <p className="text-[10px] text-zinc-500">Higher values produce softer color transitions.</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

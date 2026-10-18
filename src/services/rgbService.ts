@@ -607,7 +607,7 @@ class RgbControllerService {
     }
   }
 
-  // Send Direct Mode LED Frame via native SinoWealth Planar CMD 0x06 (122 keys)
+  // Send Direct Mode LED Frame (transmits both Planar CMD 0x06 and Direct CMD 0x08 for 122 keys)
   public async sendDirectFrame(colors: (RGBColor | null)[]): Promise<boolean> {
     if (!this.device || !this.device.opened || this.isSendingFrame) {
       return false;
@@ -615,7 +615,7 @@ class RgbControllerService {
 
     this.isSendingFrame = true;
     try {
-      // Send Planar Frame (CMD 0x06) - native hardware per-key command supported across SinoWealth firmwares
+      // 1. Send Planar Frame (CMD 0x06) - native hardware per-key command supported across all LEOBOG firmwares
       const planarPkt = new Uint8Array(519);
       planarPkt[0] = 0x06; // CMD: LED_PLANAR
       planarPkt[1] = 0x00;
@@ -637,6 +637,25 @@ class RgbControllerService {
       }
 
       await this.device.sendFeatureReport(6, planarPkt);
+
+      // 2. Also send Direct Frame (CMD 0x08) - OpenRGB direct mode interleaved format
+      const directPkt = new Uint8Array(519);
+      directPkt[0] = 0x08; // CMD: SET_LEDS_DIRECT
+      directPkt[1] = 0x00;
+      directPkt[2] = 0x00;
+      directPkt[3] = 0x01;
+      directPkt[4] = 0x00;
+      directPkt[5] = 0x7a; // 122 keys
+      directPkt[6] = 0x01;
+
+      for (let i = 0; i < 122; i++) {
+        const c = colors[i] || { r: 0, g: 0, b: 0 };
+        directPkt[7 + i * 3] = c.r;
+        directPkt[7 + i * 3 + 1] = c.g;
+        directPkt[7 + i * 3 + 2] = c.b;
+      }
+
+      await this.device.sendFeatureReport(6, directPkt);
       return true;
     } catch (err: any) {
       webhid.log(`[RGB Frame Error] ${err.message}`);
@@ -665,17 +684,6 @@ class RgbControllerService {
       clearInterval(this.keepaliveTimer);
       this.keepaliveTimer = null;
     }
-  }
-
-  // Prepare hardware for custom external direct streaming (Screen Sync / Ambilight / Audio)
-  public async prepareDirectStreaming(sessionName: string = 'Screen Ambilight') {
-    await this.stopSoftwareAnimation();
-    this.notify({
-      activeSoftwareAnim: sessionName as any,
-      isDirectStreaming: true,
-      customMode: false,
-    });
-    webhid.log(`[RGB] Ready for external streaming: ${sessionName}`);
   }
 
   // Start built-in software animation stream
