@@ -1,4 +1,6 @@
 // Central Input State Manager for Leobog Hi75 C Pro Key Press Visualizer
+import { switchHealthService } from './switchHealthService';
+
 export interface KeyHistoryItem {
   id: string;
   combination: string;
@@ -291,6 +293,7 @@ class InputManager {
     const matrixIdx = PHYSICAL_CODE_TO_MATRIX[code];
     if (matrixIdx !== undefined) {
       this.pressedMatrixIndices.add(matrixIdx);
+      switchHealthService.recordKeyDown(matrixIdx, code, key);
     }
 
     this.logDebug('DOM', code, key, matrixIdx);
@@ -308,6 +311,7 @@ class InputManager {
     const matrixIdx = PHYSICAL_CODE_TO_MATRIX[code];
     if (matrixIdx !== undefined) {
       this.pressedMatrixIndices.delete(matrixIdx);
+      switchHealthService.recordKeyUp(matrixIdx);
     }
 
     this.notify();

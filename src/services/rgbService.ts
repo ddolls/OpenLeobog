@@ -686,6 +686,42 @@ class RgbControllerService {
     }
   }
 
+  // Prepare hardware for custom external direct streaming (Screen Sync / Ambilight / Audio)
+  public async prepareDirectStreaming(sessionName: string = 'Screen Ambilight') {
+    await this.stopSoftwareAnimation();
+    this.notify({
+      activeSoftwareAnim: sessionName as any,
+      isDirectStreaming: true,
+      customMode: false,
+    });
+
+    if (this.device && this.device.opened) {
+      try {
+        const freshConfig = await this.readDeviceConfig(true);
+        const cfgPkt = new Uint8Array(519);
+        cfgPkt[0] = 0x04;
+        cfgPkt[3] = 0x01;
+        cfgPkt[5] = 0x80;
+
+        const baseline = freshConfig || this.cachedConfig;
+        if (baseline) {
+          const copyLen = Math.min(baseline.length - 7, 519 - 7);
+          for (let i = 0; i < copyLen; i++) {
+            cfgPkt[7 + i] = baseline[7 + i];
+          }
+        }
+
+        cfgPkt[16] = 0x01;
+        cfgPkt[17] = 0x12; // effect 18 (custom render mode)
+        await this.device.sendFeatureReport(6, cfgPkt);
+        await new Promise((r) => setTimeout(r, 25));
+      } catch (err: any) {
+        webhid.log(`[RGB Stream Init Warning] ${err.message}`);
+      }
+    }
+    webhid.log(`[RGB] Ready for external streaming: ${sessionName}`);
+  }
+
   // Start built-in software animation stream
   public async startSoftwareAnimation(animType: 'matrix' | 'rainbow' | 'pulse' | 'fire') {
     await this.stopSoftwareAnimation();
