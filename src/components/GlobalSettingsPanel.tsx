@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Moon, Zap, Touchpad, CheckCircle2, AlertTriangle, RotateCcw, Save } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, RotateCcw, Save } from 'lucide-react';
 import { hardwareSettingsService, type HardwareGlobalSettings } from '../services/hardwareSettingsService';
 
 interface GlobalSettingsPanelProps {
@@ -132,14 +132,9 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
         <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-950/40 border border-purple-800/60 flex items-center justify-center">
-                  <Touchpad className="w-4 h-4 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white tracking-wide">Tap Function</h3>
-                  <div className="text-[11px] text-zinc-500 font-mono">Dual-Action Sensitivity</div>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Tap Function</h3>
+                <div className="text-[11px] text-zinc-500 font-mono">Dual-Action Sensitivity</div>
               </div>
 
               {/* Toggle switch */}
@@ -195,14 +190,9 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
         <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-950/40 border border-blue-800/60 flex items-center justify-center">
-                  <Moon className="w-4 h-4 text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white tracking-wide">Sleep Timeout</h3>
-                  <div className="text-[11px] text-zinc-500 font-mono">Wireless Power Saver</div>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Sleep Timeout</h3>
+                <div className="text-[11px] text-zinc-500 font-mono">Wireless Power Saver</div>
               </div>
 
               {/* Toggle switch */}
@@ -258,14 +248,9 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
         <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-950/40 border border-amber-800/60 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white tracking-wide">Debounce Filter</h3>
-                  <div className="text-[11px] text-zinc-500 font-mono">Switch Chatter Control</div>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Debounce Filter</h3>
+                <div className="text-[11px] text-zinc-500 font-mono">Switch Chatter Control</div>
               </div>
 
               <span className="px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-amber-950/80 border border-amber-800 text-amber-300">

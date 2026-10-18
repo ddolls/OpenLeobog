@@ -8,14 +8,12 @@ import {
 import { LEOBOG_HI75C_LAYOUT, type KeyDefinition } from '../types/hid';
 import { inputManager, type KnobState } from '../services/inputManager';
 import {
-  Activity,
   AlertTriangle,
   CheckCircle2,
   Volume2,
   VolumeX,
   RotateCcw,
   Download,
-  Sliders,
   ShieldAlert,
   Info,
 } from 'lucide-react';
@@ -117,8 +115,7 @@ export const SwitchTesterWidget: React.FC = () => {
               </span>
               <span className="text-xs text-zinc-500 font-mono">Chatter Detection • Switch Latency • Health Map</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              <Activity className="w-6 h-6 text-rose-400" />
+            <h2 className="text-2xl font-black tracking-tight text-white">
               Switch Chatter &amp; Latency Tester
             </h2>
             <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
@@ -221,19 +218,16 @@ export const SwitchTesterWidget: React.FC = () => {
 
       {/* Threshold Slider & Debounce Advisory */}
       <div className="bg-[#141414] border border-[#242424] rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Sliders className="w-4 h-4 text-cyan-400 shrink-0" />
-          <div>
-            <div className="text-xs font-semibold text-white flex items-center gap-2">
-              Chatter Detection Threshold:
-              <span className="font-mono text-cyan-300 font-bold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800 text-[11px]">
-                {threshold} ms
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-400">
-              Key releases re-pressed within &lt; {threshold}ms will be flagged as switch chatter.
-            </p>
+        <div>
+          <div className="text-xs font-semibold text-white flex items-center gap-2">
+            Chatter Detection Threshold:
+            <span className="font-mono text-cyan-300 font-bold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800 text-[11px]">
+              {threshold} ms
+            </span>
           </div>
+          <p className="text-[11px] text-zinc-400">
+            Key releases re-pressed within &lt; {threshold}ms will be flagged as switch chatter.
+          </p>
         </div>
 
         <div className="flex items-center gap-4">

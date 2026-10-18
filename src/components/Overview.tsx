@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 interface OverviewProps {
   isConnected: boolean;
@@ -63,7 +63,6 @@ export const Overview: React.FC<OverviewProps> = ({
                 onClick={onNavigateToTester}
                 className="px-3 py-1.5 rounded-lg bg-[#181818] hover:bg-[#222222] border border-[#2c2c2c] text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <Activity className="w-3.5 h-3.5 text-rose-400" />
                 <span>Test Switch Chatter &amp; Latency</span>
                 <ArrowRight className="w-3 h-3 text-zinc-500" />
               </button>

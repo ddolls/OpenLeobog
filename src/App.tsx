@@ -300,17 +300,17 @@ export function App() {
               rel="noopener noreferrer"
               className="px-3 py-1 rounded-lg bg-[#141414] hover:bg-[#1f1f1f] border border-[#2a2a2a] hover:border-amber-500/50 text-amber-300 hover:text-amber-200 font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm"
             >
-              Buy me a coffee
+              ☕Buy me a coffee!
             </a>
 
             <span className="text-zinc-600">•</span>
 
             <span className="flex items-center gap-1 text-zinc-400">
-              Created by{' '}
+              Created with ❤️ by{' '}
               <button
                 type="button"
                 onClick={() => setIsSocialModalOpen(true)}
-                className="text-white hover:text-cyan-400 font-bold underline underline-offset-4 decoration-zinc-600 hover:decoration-cyan-400 transition-colors cursor-pointer"
+                className="text-white hover:text-rose-400 font-bold underline underline-offset-4 decoration-zinc-600 hover:decoration-rose-400 transition-colors cursor-pointer"
               >
                 Mickey Montana
               </button>
