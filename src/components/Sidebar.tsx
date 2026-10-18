@@ -8,7 +8,7 @@ interface SidebarProps {
   deviceName: string;
   onConnect: () => void;
   userMode: 'guest' | 'dev';
-  onOpenModeModal: () => void;
+  onOpenModeModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -18,7 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   deviceName,
   onConnect,
   userMode,
-  onOpenModeModal,
 }) => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -100,48 +99,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
-      </div>
-
-      {/* Operating Mode Footer Card */}
-      <div className="pt-4 border-t border-[#141414] space-y-2">
-        <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase px-1 font-medium">
-          OPERATING MODE
-        </div>
-        <div
-          onClick={onOpenModeModal}
-          className={`border rounded-xl p-3 cursor-pointer transition-all space-y-1.5 ${
-            userMode === 'dev'
-              ? 'bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50'
-              : 'bg-[#121212] border-[#222222] hover:border-[#333333]'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  userMode === 'dev'
-                    ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
-                    : 'bg-zinc-500'
-                }`}
-              />
-              <span
-                className={`text-xs font-bold ${
-                  userMode === 'dev' ? 'text-amber-300' : 'text-zinc-300'
-                }`}
-              >
-                {userMode === 'dev' ? 'Dev Mode' : 'Safe Mode'}
-              </span>
-            </div>
-            <span className="text-[10px] font-mono text-zinc-500 hover:text-white transition-colors">
-              Change
-            </span>
-          </div>
-          <p className="text-[10px] text-zinc-500 leading-tight">
-            {userMode === 'dev'
-              ? 'Unlocked • Full hardware access'
-              : 'Protected • Flash & Remap disabled'}
-          </p>
-        </div>
       </div>
     </aside>
   );

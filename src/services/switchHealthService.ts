@@ -54,8 +54,8 @@ class SwitchHealthService {
     this.keyStates.clear();
     this.chatterLogs = [];
 
-    // Initialize all 81 physical keys from layout
-    LEOBOG_HI75C_LAYOUT.forEach((k) => {
+    // Initialize all 81 physical keys from layout (excluding rotary knob)
+    LEOBOG_HI75C_LAYOUT.filter((k) => !k.isKnob).forEach((k) => {
       this.keyStates.set(k.matrixIdx, {
         matrixIdx: k.matrixIdx,
         label: k.label,
@@ -248,6 +248,7 @@ class SwitchHealthService {
     let fastestBounceMs: number | null = null;
 
     this.keyStates.forEach((state) => {
+      if (state.matrixIdx === 99) return;
       totalKeystrokes += state.pressCount;
       if (state.pressCount > 0) testedKeysCount++;
       if (state.chatterCount > 0) {
@@ -268,7 +269,7 @@ class SwitchHealthService {
     return {
       totalKeystrokes,
       testedKeysCount,
-      totalKeys: LEOBOG_HI75C_LAYOUT.length,
+      totalKeys: LEOBOG_HI75C_LAYOUT.filter((k) => !k.isKnob).length,
       chatterEventsCount,
       chatteringKeysCount,
       fastestBounceMs,
