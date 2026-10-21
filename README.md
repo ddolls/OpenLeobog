@@ -167,9 +167,10 @@ npm run preview
 
 ## Credits & Acknowledgements
 
-- **Created with ❤️ by [Mickey Montana](https://saweria.co/itsmickeyyy)**
+- **Created with ❤️ by [Mickey Montana](https://saweria.co/itsmickeyyy) & [Pharita](https://www.tiktok.com/@pacarnyapharitaaa)**
   - ☕ Buy me a coffee: [https://saweria.co/itsmickeyyy](https://saweria.co/itsmickeyyy)
-  - TikTok: [@itsmickeymontana](https://www.tiktok.com/@itsmickeymontana)
+  - TikTok (Mickey Montana): [@itsmickeymontana](https://www.tiktok.com/@itsmickeymontana)
+  - TikTok (Pharita): [@pacarnyapharitaaa](https://www.tiktok.com/@pacarnyapharitaaa)
   - Facebook: [Mickey Montana](https://www.facebook.com/itsmickeymontana)
   - Instagram: [@itsmickeymontana](https://www.instagram.com/itsmickeymontana/)
 - **Core Architecture Credits**: [Ayan Biswas (openaula)](https://github.com/not-ayan/openaula)
