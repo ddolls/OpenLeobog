@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { batteryService, type BatteryState } from '../services/batteryService';
-import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb } from 'lucide-react';
+import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb, Cable } from 'lucide-react';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -8,9 +8,16 @@ interface HeaderProps {
   deviceName?: string;
   userMode?: 'none' | 'guest' | 'dev';
   onOpenModeModal?: () => void;
+  onConnect?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMode = 'guest', onOpenModeModal }) => {
+export const Header: React.FC<HeaderProps> = ({
+  isConnected,
+  deviceName,
+  userMode = 'guest',
+  onOpenModeModal,
+  onConnect,
+}) => {
   const [batteryState, setBatteryState] = useState<BatteryState>(batteryService.getState());
 
   useEffect(() => {
@@ -31,22 +38,36 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
   };
 
   return (
-    <header className="px-10 pt-8 pb-6 flex items-start justify-between bg-[#0a0a0a]">
-      <div className="space-y-1">
-        <p className="text-[10px] font-mono tracking-[0.25em] text-zinc-500 uppercase font-semibold">
-          Mech Keyboard Configurator
-        </p>
-        <h1 className="text-5xl font-extrabold tracking-tight text-white">
+    <header className="px-4 sm:px-6 md:px-10 pt-4 sm:pt-6 md:pt-8 pb-3 sm:pb-4 md:pb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3 bg-[#0a0a0a]">
+      <div className="space-y-0.5 sm:space-y-1">
+        <div className="flex items-center justify-between sm:block">
+          <p className="text-[9px] sm:text-[10px] font-mono tracking-[0.25em] text-zinc-500 uppercase font-semibold">
+            Mech Keyboard Configurator
+          </p>
+
+          {/* Quick Connect Button for Mobile only */}
+          {!isConnected && onConnect && (
+            <button
+              onClick={onConnect}
+              className="sm:hidden px-2.5 py-1 rounded-lg bg-white text-black font-bold text-[11px] flex items-center gap-1.5 shadow-md active:scale-95 transition-transform"
+            >
+              <Cable className="w-3 h-3" />
+              Connect
+            </button>
+          )}
+        </div>
+
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white">
           {(!deviceName || deviceName.toLowerCase() === 'gaming keyboard') ? 'LEOBOG Hi75c Pro' : deviceName}
         </h1>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
         {/* Battery Telemetry Badge */}
         {isConnected && (
           <div
             title={`Battery Status: ${batteryState.statusText}\nEstimated Runtime: ~${batteryState.estimatedHoursRemaining} hrs\nVoltage: ${batteryState.voltageEstimate}V (4000mAh LiPo)`}
-            className={`px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-default select-none ${
+            className={`px-2.5 sm:px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-default select-none ${
               batteryState.isCharging
                 ? 'bg-emerald-950/40 border-emerald-800/80 text-emerald-300'
                 : batteryState.percentage <= 20
@@ -60,12 +81,12 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
               {batteryState.isWireless ? (
                 <>
                   <Wifi className="w-3 h-3 text-cyan-400" />
-                  <span>2.4G</span>
+                  <span className="hidden xs:inline">2.4G</span>
                 </>
               ) : (
                 <>
                   <Usb className="w-3 h-3 text-emerald-400" />
-                  <span>USB</span>
+                  <span className="hidden xs:inline">USB</span>
                 </>
               )}
             </span>
@@ -89,13 +110,14 @@ export const Header: React.FC<HeaderProps> = ({ isConnected, deviceName, userMod
           </button>
         )}
 
-        {/* HID Connection Indicator */}
-        <div className="flex items-center gap-2">
+        {/* HID Connection Indicator (Desktop & Tablet) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${isConnected
-              ? 'bg-emerald-400 shadow-[0_0_8px_#22c55e]'
-              : 'bg-zinc-600'
-              }`}
+            className={`w-2 h-2 rounded-full ${
+              isConnected
+                ? 'bg-emerald-400 shadow-[0_0_8px_#22c55e]'
+                : 'bg-zinc-600'
+            }`}
           />
           <span className="text-xs font-semibold text-zinc-400">
             {isConnected ? 'Connected' : 'Disconnected'}

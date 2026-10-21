@@ -161,9 +161,9 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
   ];
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded-2xl p-6 space-y-6">
+    <div className="bg-[#111111] border border-[#222222] rounded-2xl p-4 sm:p-6 space-y-5 sm:space-y-6">
       {/* Card Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase font-medium">
             KEYMAP &amp; SHORTCUT INSPECTOR
@@ -212,7 +212,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
       </div>
 
       {/* Mode Switcher Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#1c1c1c] pb-3">
+      <div className="flex items-center gap-2 border-b border-[#1c1c1c] pb-3 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setRemapMode('single')}
           className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -300,7 +300,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
           </div>
 
           {/* Action Bar */}
-          <div className="bg-[#161616] border border-[#222222] rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-[#161616] border border-[#222222] rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono text-zinc-500 uppercase">Selected Remap Target</div>
               <div className="text-sm font-bold text-white mt-0.5">
@@ -311,7 +311,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
             <button
               onClick={handleApplySingle}
               disabled={selectedUsage === null}
-              className={`px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-bold transition-all text-center ${
                 selectedUsage !== null
                   ? 'bg-cyan-400 hover:bg-cyan-300 text-black shadow-lg shadow-cyan-500/20 cursor-pointer'
                   : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
@@ -384,7 +384,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
           </div>
 
           {/* Trigger Key Select */}
-          <div className="bg-[#161616] border border-[#222222] rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="bg-[#161616] border border-[#222222] rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold text-zinc-300 font-mono">TRIGGER KEY</div>
               <div className="text-xs text-zinc-500">Key triggered alongside modifier combination</div>
@@ -392,7 +392,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
             <select
               value={shortcutKeyUsage}
               onChange={(e) => setShortcutKeyUsage(Number(e.target.value))}
-              className="bg-[#202020] border border-[#333333] text-white rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-cyan-400"
+              className="bg-[#202020] border border-[#333333] text-white rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-cyan-400 w-full sm:w-auto"
             >
               {HID_USAGES.filter((u) => u.category === 'Standard' || u.category === 'Function' || u.category === 'Navigation').map(
                 (u) => (
@@ -405,7 +405,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
           </div>
 
           {/* Shortcut Preview & Apply */}
-          <div className="bg-cyan-950/20 border border-cyan-500/30 rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-cyan-950/20 border border-cyan-500/30 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest">
                 Shortcut Preview
@@ -417,7 +417,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
 
             <button
               onClick={handleApplyShortcut}
-              className="bg-cyan-400 hover:bg-cyan-300 text-black font-bold px-6 py-2.5 rounded-lg text-xs transition-all shadow-lg shadow-cyan-500/20 cursor-pointer"
+              className="w-full sm:w-auto bg-cyan-400 hover:bg-cyan-300 text-black font-bold px-6 py-2.5 rounded-lg text-xs transition-all shadow-lg shadow-cyan-500/20 cursor-pointer text-center"
             >
               Apply Combo Shortcut
             </button>

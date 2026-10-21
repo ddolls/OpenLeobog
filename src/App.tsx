@@ -172,7 +172,7 @@ export function App() {
   );
 
   return (
-    <div className="flex bg-[#0a0a0a] min-h-screen text-slate-100 antialiased selection:bg-white selection:text-black">
+    <div className="flex flex-col md:flex-row bg-[#0a0a0a] min-h-screen text-slate-100 antialiased selection:bg-white selection:text-black">
       {/* Mode Selection Modal (Opens on first launch or when user clicks Change in sidebar) */}
       <ModeSelectionModal
         isOpen={isModeModalOpen || userMode === 'none'}
@@ -206,9 +206,10 @@ export function App() {
           deviceName={hidState.deviceName}
           userMode={userMode}
           onOpenModeModal={() => setIsModeModalOpen(true)}
+          onConnect={handleConnect}
         />
 
-        <main className="flex-1 px-10 pb-10 space-y-6 overflow-y-auto">
+        <main className="flex-1 px-3.5 sm:px-6 md:px-10 pb-28 md:pb-10 space-y-4 md:space-y-6 overflow-y-auto">
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <Overview
@@ -278,7 +279,7 @@ export function App() {
         </main>
 
         {/* Global Bottom Footer */}
-        <footer className="shrink-0 px-10 py-3.5 bg-[#080808]/90 backdrop-blur-sm border-t border-[#181818] flex items-center justify-between text-xs text-zinc-400 z-10">
+        <footer className="shrink-0 px-4 sm:px-6 md:px-10 py-3.5 bg-[#080808]/90 backdrop-blur-sm border-t border-[#181818] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400 z-10 mb-14 md:mb-0">
           {/* Bottom Left Corner */}
           <div className="flex items-center gap-1.5">
             <span>Credits</span>
@@ -293,7 +294,7 @@ export function App() {
           </div>
 
           {/* Bottom Right Corner */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <a
               href="https://saweria.co/itsmickeyyy"
               target="_blank"

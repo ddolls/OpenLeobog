@@ -68,7 +68,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
   return (
     <div className="space-y-6">
       {/* Top Banner Header */}
-      <div className="bg-[#101010] border border-[#222222] rounded-2xl p-6 relative overflow-hidden">
+      <div className="bg-[#101010] border border-[#222222] rounded-2xl p-4 sm:p-6 relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
       {/* 3 Main Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 1. TAP SETTINGS CARD */}
-        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
+        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-4 sm:p-6 flex flex-col justify-between space-y-5 sm:space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -187,7 +187,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
         </div>
 
         {/* 2. SLEEP SETTINGS CARD */}
-        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
+        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-4 sm:p-6 flex flex-col justify-between space-y-5 sm:space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -245,7 +245,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ isConn
         </div>
 
         {/* 3. DEBOUNCE SETTINGS CARD */}
-        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-6 flex flex-col justify-between space-y-6">
+        <div className="bg-[#121212] border border-[#222222] rounded-2xl p-4 sm:p-6 flex flex-col justify-between space-y-5 sm:space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>

@@ -44,11 +44,12 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col items-center justify-center space-y-2 py-2">
-      {rows.map((rowIdx) => {
-        const keysInRow = LEOBOG_HI75C_LAYOUT.filter((k) => k.row === rowIdx);
-        return (
-          <div key={rowIdx} className="flex items-center gap-1.5 relative h-11 w-full max-w-[704px]">
+    <div className="w-full overflow-x-auto pb-2 pt-1 touch-pan-x select-none">
+      <div className="min-w-[704px] w-[704px] mx-auto flex flex-col items-center justify-center space-y-2 py-2">
+        {rows.map((rowIdx) => {
+          const keysInRow = LEOBOG_HI75C_LAYOUT.filter((k) => k.row === rowIdx);
+          return (
+            <div key={rowIdx} className="flex items-center gap-1.5 relative h-11 w-full max-w-[704px]">
             {keysInRow.map((keyDef: KeyDefinition) => {
               const record = records.get(keyDef.matrixIdx);
               const currentUsage = record ? record.hidUsage : null;
@@ -183,5 +184,6 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
         );
       })}
     </div>
+  </div>
   );
 };

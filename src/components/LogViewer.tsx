@@ -25,7 +25,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ logs, onClear }) => {
   };
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded-2xl p-6 space-y-5">
+    <div className="bg-[#111111] border border-[#222222] rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
       {/* Header with Eyebrow and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-[#1c1c1c]">
         <div className="space-y-1">

@@ -269,7 +269,8 @@ export const SwitchTesterWidget: React.FC = () => {
         </div>
 
         {/* 75% Physical Matrix */}
-        <div className="w-full flex flex-col items-center justify-center space-y-2 py-2">
+        <div className="w-full overflow-x-auto pb-2 pt-1 touch-pan-x select-none">
+          <div className="min-w-[704px] w-[704px] mx-auto flex flex-col items-center justify-center space-y-2 py-2">
           {rows.map((rowIdx) => {
             const keysInRow = LEOBOG_HI75C_LAYOUT.filter((k) => k.row === rowIdx);
             return (
@@ -340,6 +341,7 @@ export const SwitchTesterWidget: React.FC = () => {
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 

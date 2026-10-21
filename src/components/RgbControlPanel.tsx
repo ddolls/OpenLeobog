@@ -312,7 +312,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
         </div>
 
         {/* Sub-Navigation Tabs */}
-        <div className="flex items-center gap-2 mt-6 pt-4 border-t border-[#1a1a1a]">
+        <div className="flex items-center gap-2 mt-6 pt-4 border-t border-[#1a1a1a] overflow-x-auto no-scrollbar pb-1">
           <button
             onClick={() => setActiveTab('effects')}
             className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
@@ -745,8 +745,9 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
               Click any key below to paint it with the active brush color. Keys light up in real time.
             </div>
 
-            <div className="w-full flex flex-col items-center justify-center space-y-2 py-4 select-none">
-              {[0, 1, 2, 3, 4, 5].map((rowIdx) => {
+            <div className="w-full overflow-x-auto pb-2 pt-1 touch-pan-x select-none">
+              <div className="min-w-[704px] w-[704px] mx-auto flex flex-col items-center justify-center space-y-2 py-4">
+                {[0, 1, 2, 3, 4, 5].map((rowIdx) => {
                 const keysInRow = LEOBOG_HI75C_LAYOUT.filter((k) => k.row === rowIdx);
                 return (
                   <div
@@ -812,6 +813,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
         </div>

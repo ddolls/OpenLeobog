@@ -39,7 +39,7 @@ export const Overview: React.FC<OverviewProps> = ({
       {/* Top Hero Layout - Split (Left Hero Canvas / Right Stat Stack) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Hero Canvas (66% Width) */}
-        <div className="lg:col-span-2 bg-[#111111] border border-[#222222] rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[420px]">
+        <div className="lg:col-span-2 bg-[#111111] border border-[#222222] rounded-2xl p-4 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[380px] sm:min-h-[420px]">
           {/* Orbital Grid Rings Background */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="orbit-ring-1 flex items-center justify-center">
@@ -63,22 +63,25 @@ export const Overview: React.FC<OverviewProps> = ({
           </div>
 
           {/* Centered Keyboard View */}
-          <div className="relative z-10 my-auto py-4">
+          <div className="relative z-10 my-auto py-2 sm:py-4">
+            <div className="md:hidden flex items-center justify-center gap-1.5 text-[10px] font-mono text-zinc-400 bg-[#161616] py-1 px-3 rounded-lg border border-[#262626] mb-2 mx-auto w-fit">
+              <span>↔️ Geser untuk melihat tombol F9-F12, Knob &amp; Nav</span>
+            </div>
             {keyboardElement}
           </div>
 
-          <div className="relative z-10 flex items-center justify-between">
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
             {onNavigateToTester ? (
               <button
                 onClick={onNavigateToTester}
-                className="px-3 py-1.5 rounded-lg bg-[#181818] hover:bg-[#222222] border border-[#2c2c2c] text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-[#181818] hover:bg-[#222222] border border-[#2c2c2c] text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer w-full sm:w-auto justify-center"
               >
                 <span>Test Switch Chatter &amp; Latency</span>
                 <ArrowRight className="w-3 h-3 text-zinc-500" />
               </button>
             ) : <div />}
 
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest hidden sm:inline">
               {deviceName || 'LEOBOG Hi75c Pro'}
             </span>
           </div>
