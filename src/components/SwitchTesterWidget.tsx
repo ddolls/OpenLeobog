@@ -20,9 +20,12 @@ import {
   Info,
   Zap,
   Sparkles,
+  Activity,
 } from 'lucide-react';
+import { PollingRateTab } from './PollingRateTab';
 
 export const SwitchTesterWidget: React.FC = () => {
+  const [activeTesterTab, setActiveTesterTab] = useState<'matrix' | 'polling'>('matrix');
   const [, setTick] = useState(0);
   const [pressedIndices, setPressedIndices] = useState<Set<number>>(new Set());
   const [knobState, setKnobState] = useState<KnobState>(inputManager.getKnobState());
@@ -30,10 +33,16 @@ export const SwitchTesterWidget: React.FC = () => {
   const [isApplyingDebounce, setIsApplyingDebounce] = useState<boolean>(false);
   const [debounceToast, setDebounceToast] = useState<{ text: string; isError: boolean } | null>(null);
 
+  // Only enable switch health recording and switch sound when on the matrix tab
+  useEffect(() => {
+    inputManager.setTestMode(activeTesterTab === 'matrix');
+    return () => {
+      inputManager.setTestMode(false);
+    };
+  }, [activeTesterTab]);
+
   // Subscribe to switch health updates and inputs
   useEffect(() => {
-    inputManager.setTestMode(true);
-
     const unsubHealth = switchHealthService.subscribe(() => {
       setTick((t) => t + 1);
     });
@@ -51,7 +60,6 @@ export const SwitchTesterWidget: React.FC = () => {
     });
 
     return () => {
-      inputManager.setTestMode(false);
       unsubHealth();
       unsubInput();
       unsubKnob();
@@ -289,7 +297,40 @@ export const SwitchTesterWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Stats Cards */}
+      {/* Tester Sub-Tab Switcher */}
+      <div className="flex items-center gap-2 border-b border-[#222222] pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTesterTab('matrix')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTesterTab === 'matrix'
+              ? 'bg-white text-black shadow-sm font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-[#181818]'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Switch Matrix &amp; Chatter Test</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTesterTab('polling')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTesterTab === 'polling'
+              ? 'bg-white text-black shadow-sm font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-[#181818]'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Polling Rate &amp; Latency Benchmark</span>
+        </button>
+      </div>
+
+      {activeTesterTab === 'polling' ? (
+        <PollingRateTab />
+      ) : (
+        <>
+          {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         {/* Coverage */}
         <div className="bg-[#111111] border border-[#222222] rounded-xl p-4 space-y-1.5">
@@ -703,6 +744,8 @@ export const SwitchTesterWidget: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

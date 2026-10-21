@@ -1,5 +1,6 @@
 // Central Input State Manager for Leobog Hi75 C Pro Key Press Visualizer
 import { switchHealthService } from './switchHealthService';
+import { pollingRateService } from './pollingRateService';
 
 export interface KeyHistoryItem {
   id: string;
@@ -240,6 +241,7 @@ class InputManager {
   }
 
   public triggerKnobAction(action: 'up' | 'down' | 'mute') {
+    pollingRateService.recordEvent('dom', `Knob_${action}`);
     if (action === 'up') {
       this.knobState.rotation += 18;
       this.knobState.lastAction = 'up';
@@ -287,6 +289,7 @@ class InputManager {
   }
 
   public handleKeyDown(code: string, key: string = '') {
+    pollingRateService.recordEvent('dom', code);
     if (this.pressedCodes.has(code)) return;
 
     this.pressedCodes.add(code);
@@ -333,6 +336,7 @@ class InputManager {
     if (!device) return;
     try {
       device.addEventListener('inputreport', (e: any) => {
+        pollingRateService.recordEvent('webhid', `HID_${e.reportId}`);
         const { reportId, data } = e;
         const rawBytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
         const hex = Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');

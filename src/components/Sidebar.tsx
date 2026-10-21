@@ -23,7 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'typing-test', label: 'Typing Test', icon: Timer, mobileLabel: 'Typing' },
     { id: 'rgb', label: 'RGB Lighting', icon: Palette, mobileLabel: 'RGB' },
     { id: 'settings', label: 'Hardware Settings', icon: Sliders, mobileLabel: 'Settings' },
-    { id: 'switch-tester', label: 'Switch Tester', icon: Activity, mobileLabel: 'Tester' },
+    { id: 'switch-tester', label: 'Switch & PRate Test', icon: Activity, mobileLabel: 'Tester' },
     ...(userMode === 'dev'
       ? [{ id: 'backup', label: 'Backup & Recovery', icon: ShieldAlert, mobileLabel: 'Backup' }]
       : []),
