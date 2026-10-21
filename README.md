@@ -49,15 +49,16 @@ Directly configure your keyboard in any modern Chromium-based browser (Google Ch
   - Styled in Amber/Orange with PIN authorization (`270892`).
   - Unlocks full hardware flash write access, key remapping, and experimental features.
 
-### 4. Key Remapping & Shortcut Builder
+### 4. Key Remapping & Dynamic OS Switcher
+- **Dynamic Header OS Switcher**: Real-time layout detection between Windows PC (Win on #11, Alt on #17) and Apple macOS ergonomics (Option ⌥ on #11, Command ⌘ on #17) located directly next to the connection status.
 - **Single Key Remap**: Remap any physical key to standard HID usages, navigation keys, or media controls.
 - **Multi-Modifier Shortcut Builder**: Create custom combinations (e.g., `Ctrl + Shift + C`, `Win + Alt + V`).
 - **Productivity Presets**: One-click quick mapping for common shortcuts (Copy, Paste, Cut, Undo, Redo, Save).
-- **One-Click Win & Alt Swap**: Instantly swap Windows and Left Alt keys.
 
 ### 5. RGB Lighting Suite
 - **Hardware Ambience**: Real-time effect controls with curated, stable factory animations.
-- **Per-Key RGB Canvas Painter**: Interactive matrix painter with customizable color swatches and gradient generators.
+- **Per-Key RGB Canvas Painter**: Interactive matrix painter with customizable color swatches, gradient generators, and zone presets (FPS, MOBA, Cyberpunk, Rainbow).
+- **Anti-Disconnect Drag Brush**: High-speed brush dragging with local state staging (120 FPS visual feedback) and mutex-guarded atomic commits upon mouse release to eliminate USB endpoint stalls.
 - **Direct Software Stream Animations (BETA)**: High-framerate frame streaming engine for custom dynamic animations.
 
 ### 6. Hardware Repair & Diagnostics Toolkit (BETA)
@@ -65,6 +66,27 @@ Directly configure your keyboard in any modern Chromium-based browser (Google Ch
 - **Win Key Unstick**: Resets Windows key and clears hardware Win-Lock state.
 - **Factory Baseline Snapshots**: Export and import complete 1024-byte EEPROM state snapshots in JSON format with checksum verification.
 - **Live HID Diagnostics**: Real-time WebHID Feature Report inspector and DOM event logging.
+
+### 7. Switch Health & Chatter Diagnostics
+- **Real-Time Debounce Monitor**: Measures key bounce intervals in milliseconds to detect mechanical chatter or switch degradation before double-typing issues occur.
+- **Visual Switch Tester**: Interactive matrix with instant keypress feedback and latching activation history.
+
+---
+
+## 🚀 Recent Updates
+
+### Latest Enhancements
+- **Dynamic Header OS Layout Switcher**:
+  - Moved the macOS/Windows switcher directly into the top-right header, positioned cleanly to the left of the `Connected` status indicator.
+  - Automatically reads the hardware matrix table to detect the current operating layout (showing `Windows` with a cyan monitor icon or `macOS` with a white Apple icon).
+  - Toggles between macOS (Cmd/Opt) and Windows layout with a single click.
+  - Removed duplicate OS switcher cards from the remapping view for a cleaner UI.
+- **Per-Key RGB Drag Brush Anti-Disconnect**:
+  - Re-engineered drag brush painting to buffer color changes in local UI memory during mouse dragging (zero USB packets sent while in motion).
+  - Commits the finished lighting frame to the keyboard microcontroller in a single atomic write upon mouse release, protected by a mutex queue.
+  - Completely prevents keyboard USB endpoint crashes and disconnection during fast multi-key painting.
+- **Responsive Mobile & Portrait Layouts**:
+  - Optimized touch navigation, bottom navigation bar, and collapsible control cards for mobile and tablet devices.
 
 ---
 
