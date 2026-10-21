@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { batteryService, type BatteryState } from '../services/batteryService';
-import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb, Cable } from 'lucide-react';
+import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb, Cable, Apple, Monitor } from 'lucide-react';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -9,6 +9,9 @@ interface HeaderProps {
   userMode?: 'none' | 'guest' | 'dev';
   onOpenModeModal?: () => void;
   onConnect?: () => void;
+  isMacLayout?: boolean;
+  onApplyMacLayout?: () => void;
+  onApplyWindowsLayout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   userMode = 'guest',
   onOpenModeModal,
   onConnect,
+  isMacLayout = false,
+  onApplyMacLayout,
+  onApplyWindowsLayout,
 }) => {
   const [batteryState, setBatteryState] = useState<BatteryState>(batteryService.getState());
 
@@ -107,6 +113,36 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span className={`w-1.5 h-1.5 rounded-full ${userMode === 'dev' ? 'bg-amber-400' : 'bg-cyan-400'}`} />
             <span>{userMode === 'dev' ? 'Dev Mode' : 'Safe Mode'}</span>
+          </button>
+        )}
+
+        {/* 1-Click OS Layout Switcher Button (To the left of Connected Status) */}
+        {isConnected && (
+          <button
+            type="button"
+            onClick={isMacLayout ? onApplyWindowsLayout : onApplyMacLayout}
+            className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+              isMacLayout
+                ? 'bg-white hover:bg-zinc-200 text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.25)]'
+                : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 hover:border-cyan-500/50 text-zinc-200'
+            }`}
+            title={
+              isMacLayout
+                ? 'Layout aktif: macOS (Klik untuk beralih ke Windows)'
+                : 'Layout aktif: Windows (Klik untuk beralih ke macOS)'
+            }
+          >
+            {isMacLayout ? (
+              <>
+                <Apple className="w-3.5 h-3.5 fill-black" />
+                <span className="font-bold">macOS</span>
+              </>
+            ) : (
+              <>
+                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="font-semibold text-zinc-200">Windows</span>
+              </>
+            )}
           </button>
         )}
 

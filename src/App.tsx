@@ -152,15 +152,6 @@ export function App() {
     webhid.log('Applied Windows PC layout (Win ⊞ on Matrix #11, Alt on Matrix #17)');
   };
 
-  const handleSwapWinAlt = async () => {
-    const currentWin = hidState.records.get(11)?.hidUsage || 0xE3;
-    const currentAlt = hidState.records.get(17)?.hidUsage || 0xE2;
-
-    await handleApplyRemap(11, currentAlt);
-    await handleApplyRemap(17, currentWin);
-    webhid.log('Swapped Windows (Matrix 11) and Left Alt (Matrix 17)');
-  };
-
   const handleResetKey = async (matrixIdx: number) => {
     const rec = hidState.records.get(matrixIdx);
     if (rec) {
@@ -222,6 +213,9 @@ export function App() {
           userMode={userMode}
           onOpenModeModal={() => setIsModeModalOpen(true)}
           onConnect={handleConnect}
+          isMacLayout={isMacLayout}
+          onApplyMacLayout={handleApplyMacLayout}
+          onApplyWindowsLayout={handleApplyWindowsLayout}
         />
 
         <main className="flex-1 px-3.5 sm:px-6 md:px-10 pb-28 md:pb-10 space-y-4 md:space-y-6 overflow-y-auto">
@@ -247,13 +241,9 @@ export function App() {
                 records={hidState.records}
                 onApplyRemap={handleApplyRemap}
                 onApplyComboRemap={handleApplyComboRemap}
-                onSwapWinAlt={handleSwapWinAlt}
                 onResetKey={handleResetKey}
                 onResetAll={handleResetAll}
                 isDevMode={userMode === 'dev'}
-                isMacLayout={isMacLayout}
-                onApplyMacLayout={handleApplyMacLayout}
-                onApplyWindowsLayout={handleApplyWindowsLayout}
               />
             </div>
           )}

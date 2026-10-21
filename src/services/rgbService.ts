@@ -545,66 +545,68 @@ class RgbControllerService {
       return true;
     }
 
-    try {
-      webhid.log(`[RGB] Uploading planar RGB packet (CMD 0x06)...`);
-      const pkt = new Uint8Array(519);
-      pkt[0] = 0x06; // CMD: LED_PLANAR
-      pkt[1] = 0x00;
-      pkt[2] = 0x00;
-      pkt[3] = 0x01;
-      pkt[4] = 0x00;
-      pkt[5] = 0x7a; // 122 keys
-      pkt[6] = 0x01;
+    return this.runExclusive(async () => {
+      try {
+        webhid.log(`[RGB] Uploading planar RGB packet (CMD 0x06)...`);
+        const pkt = new Uint8Array(519);
+        pkt[0] = 0x06; // CMD: LED_PLANAR
+        pkt[1] = 0x00;
+        pkt[2] = 0x00;
+        pkt[3] = 0x01;
+        pkt[4] = 0x00;
+        pkt[5] = 0x7a; // 122 keys
+        pkt[6] = 0x01;
 
-      // Planar layout (channel stride 126 bytes):
-      // R plane: offset 7 to 132
-      // G plane: offset 133 to 258
-      // B plane: offset 259 to 384
-      const planeR = 7;
-      const planeG = 7 + 126;
-      const planeB = 7 + 126 * 2;
+        // Planar layout (channel stride 126 bytes):
+        // R plane: offset 7 to 132
+        // G plane: offset 133 to 258
+        // B plane: offset 259 to 384
+        const planeR = 7;
+        const planeG = 7 + 126;
+        const planeB = 7 + 126 * 2;
 
-      for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
-        const idx = parseInt(keyIdxStr, 10);
-        if (idx < 122) {
-          const rgb = hexToRgb(hex);
-          pkt[planeR + idx] = rgb.r;
-          pkt[planeG + idx] = rgb.g;
-          pkt[planeB + idx] = rgb.b;
+        for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
+          const idx = parseInt(keyIdxStr, 10);
+          if (idx < 122) {
+            const rgb = hexToRgb(hex);
+            pkt[planeR + idx] = rgb.r;
+            pkt[planeG + idx] = rgb.g;
+            pkt[planeB + idx] = rgb.b;
+          }
         }
-      }
 
-      await this.device.sendFeatureReport(6, pkt);
-      await new Promise((r) => setTimeout(r, 30));
+        await this.device.sendFeatureReport(6, pkt);
+        await new Promise((r) => setTimeout(r, 30));
 
-      // Trigger config read (silent)
-      const freshConfig = await this.readDeviceConfig(true);
-      await new Promise((r) => setTimeout(r, 25));
+        // Trigger config read (silent)
+        const freshConfig = await this.readDeviceConfig(true);
+        await new Promise((r) => setTimeout(r, 25));
 
-      // Trigger config write with custom_flag = 1, effect_id = 18
-      const cfgPkt = new Uint8Array(519);
-      cfgPkt[0] = 0x04;
-      cfgPkt[3] = 0x01;
-      cfgPkt[5] = 0x80;
+        // Trigger config write with custom_flag = 1, effect_id = 18
+        const cfgPkt = new Uint8Array(519);
+        cfgPkt[0] = 0x04;
+        cfgPkt[3] = 0x01;
+        cfgPkt[5] = 0x80;
 
-      const baseline = freshConfig || this.cachedConfig;
-      if (baseline) {
-        const copyLen = Math.min(baseline.length - 7, 519 - 7);
-        for (let i = 0; i < copyLen; i++) {
-          cfgPkt[7 + i] = baseline[7 + i];
+        const baseline = freshConfig || this.cachedConfig;
+        if (baseline) {
+          const copyLen = Math.min(baseline.length - 7, 519 - 7);
+          for (let i = 0; i < copyLen; i++) {
+            cfgPkt[7 + i] = baseline[7 + i];
+          }
         }
+
+        cfgPkt[16] = 0x01; // custom_flag = 1 (enables custom per-key)
+        cfgPkt[17] = 0x12; // effect 18 (custom static)
+
+        await this.device.sendFeatureReport(6, cfgPkt);
+        webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
+        return true;
+      } catch (err: any) {
+        webhid.log(`[RGB] Per-key write error: ${err.message}`);
+        return false;
       }
-
-      cfgPkt[16] = 0x01; // custom_flag = 1 (enables custom per-key)
-      cfgPkt[17] = 0x12; // effect 18 (custom static)
-
-      await this.device.sendFeatureReport(6, cfgPkt);
-      webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
-      return true;
-    } catch (err: any) {
-      webhid.log(`[RGB] Per-key write error: ${err.message}`);
-      return false;
-    }
+    });
   }
 
   // Send Direct Mode LED Frame (transmits both Planar CMD 0x06 and Direct CMD 0x08 for 122 keys)

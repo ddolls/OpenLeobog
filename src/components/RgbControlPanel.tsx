@@ -36,10 +36,28 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const [hexInput, setHexInput] = useState<string>(rgbState.staticColor?.toUpperCase() || '#00E5FF');
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
   const [isBrushMode, setIsBrushMode] = useState<boolean>(true);
+  const [stagedColors, setStagedColors] = useState<Record<number, string>>(rgbState.perKeyColors);
+  const stagedColorsRef = React.useRef<Record<number, string>>(rgbState.perKeyColors);
+  const hasPaintedInStrokeRef = React.useRef<boolean>(false);
 
-  // Global mouse up listener for smooth paint brush dragging across keys
+  stagedColorsRef.current = stagedColors;
+
+  // Sync stagedColors when external rgbState updates
   useEffect(() => {
-    const handleMouseUp = () => setIsMouseDown(false);
+    setStagedColors(rgbState.perKeyColors);
+    stagedColorsRef.current = rgbState.perKeyColors;
+  }, [rgbState.perKeyColors]);
+
+  // Global mouse up listener: when drag stroke completes, commit the final painted frame ONCE safely
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setIsMouseDown(false);
+      if (hasPaintedInStrokeRef.current) {
+        hasPaintedInStrokeRef.current = false;
+        // Single guarded write to keyboard after dragging finishes
+        rgbService.applyPerKeyPlanar(stagedColorsRef.current);
+      }
+    };
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, []);
@@ -170,13 +188,20 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     await rgbService.setHardwareEffect(0);
   };
 
-  // Per-key paint click handler
-  const handleKeyPaint = (matrixIdx: number) => {
+  // Per-key paint click handler (safe staged painting during drag)
+  const handleKeyPaint = (matrixIdx: number, isDragging: boolean = false) => {
     const updated = {
-      ...rgbState.perKeyColors,
+      ...stagedColorsRef.current,
       [matrixIdx]: brushColor,
     };
-    rgbService.applyPerKeyPlanar(updated);
+    stagedColorsRef.current = updated;
+    setStagedColors(updated);
+    hasPaintedInStrokeRef.current = true;
+
+    // Single click (not drag): apply right away
+    if (!isDragging) {
+      rgbService.applyPerKeyPlanar(updated);
+    }
   };
 
   const handleFillAll = () => {
@@ -184,6 +209,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
       filled[k.matrixIdx] = brushColor;
     });
+    setStagedColors(filled);
+    stagedColorsRef.current = filled;
     rgbService.applyPerKeyPlanar(filled);
   };
 
@@ -192,6 +219,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
       cleared[k.matrixIdx] = '#000000';
     });
+    setStagedColors(cleared);
+    stagedColorsRef.current = cleared;
     rgbService.applyPerKeyPlanar(cleared);
   };
 
@@ -213,6 +242,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     [7, 13, 19, 25, 31].forEach((idx) => {
       fps[idx] = '#ffb300';
     });
+    setStagedColors(fps);
+    stagedColorsRef.current = fps;
     rgbService.applyPerKeyPlanar(fps);
   };
 
@@ -236,6 +267,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     // Spacebar in Pure White
     moba[35] = '#ffffff';
+    setStagedColors(moba);
+    stagedColorsRef.current = moba;
     rgbService.applyPerKeyPlanar(moba);
   };
 
@@ -255,6 +288,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     // Esc in Coral Red
     nav[0] = '#f43f5e';
+    setStagedColors(nav);
+    stagedColorsRef.current = nav;
     rgbService.applyPerKeyPlanar(nav);
   };
 
@@ -269,6 +304,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
       const hue = Math.round((i / (fKeys.length - 1)) * 320);
       fRow[idx] = hslToHex(hue, 100, 50);
     });
+    setStagedColors(fRow);
+    stagedColorsRef.current = fRow;
     rgbService.applyPerKeyPlanar(fRow);
   };
 
@@ -279,6 +316,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
       const step = (k.row * 2 + k.col) % 16;
       cyber[k.matrixIdx] = step % 2 === 0 ? '#ff007f' : '#00e5ff';
     });
+    setStagedColors(cyber);
+    stagedColorsRef.current = cyber;
     rgbService.applyPerKeyPlanar(cyber);
   };
 
@@ -288,12 +327,14 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
       const hue = Math.round((k.col / 16) * 360);
       gradient[k.matrixIdx] = hslToHex(hue, 100, 50);
     });
+    setStagedColors(gradient);
+    stagedColorsRef.current = gradient;
     rgbService.applyPerKeyPlanar(gradient);
   };
 
   const handleSaveToFlash = async () => {
     setSaveStatus('Saving...');
-    const ok = await rgbService.applyPerKeyPlanar(rgbState.perKeyColors);
+    const ok = await rgbService.applyPerKeyPlanar(stagedColorsRef.current);
     if (ok) {
       setSaveStatus('Saved to Keyboard Memory!');
       setTimeout(() => setSaveStatus(null), 2500);
@@ -886,10 +927,10 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                     className="flex items-center gap-1.5 relative h-11 w-full max-w-[704px]"
                   >
                     {keysInRow.map((keyDef: KeyDefinition) => {
-                      const colorHex = rgbState.perKeyColors[keyDef.matrixIdx] || '#111111';
+                      const colorHex = stagedColors[keyDef.matrixIdx] || '#111111';
                       const isPainted =
-                        rgbState.perKeyColors[keyDef.matrixIdx] &&
-                        rgbState.perKeyColors[keyDef.matrixIdx] !== '#000000';
+                        stagedColors[keyDef.matrixIdx] &&
+                        stagedColors[keyDef.matrixIdx] !== '#000000';
 
                       if (keyDef.isKnob) {
                         return (
@@ -900,10 +941,10 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                             onMouseDown={(e) => {
                               e.preventDefault();
                               setIsMouseDown(true);
-                              handleKeyPaint(keyDef.matrixIdx);
+                              handleKeyPaint(keyDef.matrixIdx, false);
                             }}
                             onMouseEnter={() => {
-                              if (isMouseDown && isBrushMode) handleKeyPaint(keyDef.matrixIdx);
+                              if (isMouseDown && isBrushMode) handleKeyPaint(keyDef.matrixIdx, true);
                             }}
                           >
                             <div
@@ -928,11 +969,11 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setIsMouseDown(true);
-                            handleKeyPaint(keyDef.matrixIdx);
+                            handleKeyPaint(keyDef.matrixIdx, false);
                           }}
                           onMouseEnter={() => {
                             if (isMouseDown && isBrushMode) {
-                              handleKeyPaint(keyDef.matrixIdx);
+                              handleKeyPaint(keyDef.matrixIdx, true);
                             }
                           }}
                           style={{

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Sparkles, Apple, Monitor } from 'lucide-react';
+import { ShieldCheck, Sparkles } from 'lucide-react';
 import {
   LEOBOG_HI75C_LAYOUT,
   HID_USAGES,
@@ -23,13 +23,9 @@ export interface KeyRemapPanelProps {
   records: Map<number, KeyRecord>;
   onApplyRemap: (matrixIdx: number, usage: number) => void;
   onApplyComboRemap: (matrixIdx: number, rawBytes: [number, number, number, number]) => void;
-  onSwapWinAlt: () => void;
   onResetKey: (matrixIdx: number) => void;
   onResetAll?: () => void;
   isDevMode?: boolean;
-  isMacLayout?: boolean;
-  onApplyMacLayout?: () => void;
-  onApplyWindowsLayout?: () => void;
 }
 
 export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
@@ -37,12 +33,8 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
   records,
   onApplyRemap,
   onApplyComboRemap,
-  onSwapWinAlt,
   onResetKey,
   onResetAll,
-  isMacLayout = false,
-  onApplyMacLayout,
-  onApplyWindowsLayout,
 }) => {
   const [remapMode, setRemapMode] = useState<'single' | 'shortcut' | 'presets'>('single');
   const [activeCategory, setActiveCategory] = useState<string>('Standard');
@@ -82,59 +74,6 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
     }
   }, [selectedMatrixIdx, records]);
 
-  // 1-Click OS Switcher component
-  const osSwitcherCard = (
-    <div className="w-full bg-[#161616] border border-[#282828] rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
-      <div className="flex items-center gap-2.5">
-        <div className={`p-2 rounded-lg border ${isMacLayout ? 'bg-zinc-800 border-zinc-600 text-white' : 'bg-cyan-950/80 border-cyan-800 text-cyan-300'}`}>
-          {isMacLayout ? <Apple className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-        </div>
-        <div>
-          <div className="text-xs font-bold text-white flex items-center gap-2">
-            <span>Operating System Layout:</span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
-              isMacLayout
-                ? 'bg-zinc-800 text-white border border-zinc-600'
-                : 'bg-cyan-950 border border-cyan-800 text-cyan-300'
-            }`}>
-              {isMacLayout ? 'Apple macOS' : 'Windows PC'}
-            </span>
-          </div>
-          <div className="text-[11px] text-zinc-400 font-mono">
-            {isMacLayout ? 'Matrix #11 = ⌥ Option, Matrix #17 = ⌘ Command' : 'Matrix #11 = ⊞ Win, Matrix #17 = Alt'}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={onApplyWindowsLayout || onSwapWinAlt}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-            !isMacLayout
-              ? 'bg-cyan-500 text-black font-bold shadow-md'
-              : 'bg-[#222222] hover:bg-[#2c2c2c] text-zinc-300 border border-[#333333]'
-          }`}
-          title="Standard Windows PC layout (Win on #11, Alt on #17)"
-        >
-          <Monitor className="w-3.5 h-3.5" />
-          <span>Windows PC</span>
-        </button>
-        <button
-          onClick={onApplyMacLayout || onSwapWinAlt}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-            isMacLayout
-              ? 'bg-white text-black font-bold shadow-md'
-              : 'bg-[#222222] hover:bg-[#2c2c2c] text-zinc-300 border border-[#333333]'
-          }`}
-          title="Swap Left Win and Left Alt for native macOS Command/Option ergonomics"
-        >
-          <Apple className="w-3.5 h-3.5" />
-          <span>macOS (Cmd/Opt)</span>
-        </button>
-      </div>
-    </div>
-  );
-
   if (selectedMatrixIdx === null) {
     return (
       <div className="bg-[#111111] border border-[#222222] rounded-2xl p-6 flex flex-col items-center justify-center min-h-[220px] space-y-4">
@@ -147,8 +86,6 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
             Click any key on the physical keyboard layout above to remap its function, assign custom combos, or apply instant media shortcuts.
           </p>
         </div>
-
-        {osSwitcherCard}
       </div>
     );
   }
