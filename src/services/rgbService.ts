@@ -1,6 +1,7 @@
 import {
   LEOBOG_HI75C_LAYOUT,
   DEFAULT_RGB_STATE,
+  LEOBOG_RGB_EFFECTS,
   type RGBColor,
   type RgbConfigState,
 } from '../types/hid';
@@ -34,7 +35,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-// Modes that use color (from f87_effects.h scan)
+// Modes that support custom single-color in firmware
 const COLOR_CAPABLE_MODES = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13];
 
 class RgbControllerService {
@@ -241,7 +242,8 @@ class RgbControllerService {
           colorful = (speedByte & 0x0f) !== 0;
         }
 
-        const validEffectId = typeof effectId === 'number' && effectId <= 18 ? effectId : this.state.effectId;
+        const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
+        const validEffectId = typeof effectId === 'number' && (isKnownEffect || (effectId >= 0 && effectId <= 32)) ? effectId : this.state.effectId;
         const validSideLight = typeof sideLightMode === 'number' && sideLightMode <= 4 ? sideLightMode : this.state.sideLightMode;
 
         this.notify({
@@ -340,7 +342,7 @@ class RgbControllerService {
         pkt[35] = 0x00;
 
         // Patch brightness and speed at offset 63 + 2 * effectId
-        if (effectId > 0 && effectId <= 18) {
+        if (effectId > 0 && effectId <= 32) {
           const paramOff = 63 + 2 * effectId;
           if (paramOff + 1 < 519) {
             pkt[paramOff] = Math.max(1, Math.min(4, brightness));

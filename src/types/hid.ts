@@ -520,7 +520,9 @@ export const LEOBOG_RGB_EFFECTS: RgbHardwareEffect[] = [
   { id: 11, name: 'Aurora', category: 'motion', description: 'Shifting northern lights atmospheric wave', hasSpeed: true, hasBrightness: true, hasColor: true },
   { id: 12, name: 'Reactive', category: 'reactive', description: 'Single pressed key illuminates instantly and fades', hasSpeed: true, hasBrightness: true, hasColor: true },
   { id: 13, name: 'Marquee', category: 'motion', description: 'Smooth moving marquee bands of light', hasSpeed: true, hasBrightness: true, hasColor: true },
+  { id: 15, name: 'Rotating Windmill', category: 'motion', description: 'Pinwheel rotational sweep of illumination around keyboard center', hasSpeed: true, hasBrightness: true, hasColor: false },
   { id: 16, name: 'Rain Down', category: 'motion', description: 'Downward vertical cascading light wave', hasSpeed: true, hasBrightness: true, hasColor: false },
+  { id: 17, name: 'Blossoming', category: 'reactive', description: 'Floral bloom of light radiating outward on keypress', hasSpeed: true, hasBrightness: true, hasColor: false },
   { id: 0, name: 'Off / Sleep', category: 'static', description: 'Turn off all keyboard LEDs completely', hasSpeed: false, hasBrightness: false, hasColor: false },
 ];
 
