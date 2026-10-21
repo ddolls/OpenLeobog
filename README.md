@@ -46,7 +46,7 @@ Directly configure your keyboard in any modern Chromium-based browser (Google Ch
   - Read-only protection mode (`Safe Mode, less feature can be change`).
   - EEPROM writing and experimental streaming features are safely locked.
 - **Dev Mode**:
-  - Styled in Amber/Orange with PIN authorization (`270892`).
+  - Styled in Amber/Orange with developer security authorization.
   - Unlocks full hardware flash write access, key remapping, and experimental features.
 
 ### 4. Key Remapping & Dynamic OS Switcher

@@ -45,13 +45,26 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
     setErrorMsg(null);
   };
 
-  const handleVerifyPin = (e: React.FormEvent) => {
+  const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim() === '270892') {
-      onSelectMode('dev');
-      if (onClose) onClose();
-    } else {
-      setErrorMsg('Incorrect PIN. Access denied!');
+    try {
+      const salt = 'openleobog_dev_key_salt_2026';
+      const encoder = new TextEncoder();
+      const data = encoder.encode(salt + pin.trim());
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+      // Salted SHA-256 hash for developer PIN verification
+      if (hashHex === 'fe79f7f81cab1c2ceee8caceda90e9dcdb8558ce7af540f89052f19de2752b37') {
+        onSelectMode('dev');
+        if (onClose) onClose();
+      } else {
+        setErrorMsg('Incorrect PIN. Access denied!');
+        setPin('');
+      }
+    } catch {
+      setErrorMsg('PIN verification failed.');
       setPin('');
     }
   };
