@@ -15,6 +15,7 @@ import { SocialModal } from './components/SocialModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
 import { parseKeyRecordUsage, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
+import { TypingTestTab } from './components/TypingTestTab';
 import { batteryService } from './services/batteryService';
 import { inputManager } from './services/inputManager';
 import { rgbService } from './services/rgbService';
@@ -246,6 +247,10 @@ export function App() {
                 isDevMode={userMode === 'dev'}
               />
             </div>
+          )}
+
+          {activeTab === 'typing-test' && (
+            <TypingTestTab />
           )}
 
           {activeTab === 'switch-tester' && (

@@ -71,11 +71,19 @@ Directly configure your keyboard in any modern Chromium-based browser (Google Ch
 - **Real-Time Debounce Monitor**: Measures key bounce intervals in milliseconds to detect mechanical chatter or switch degradation before double-typing issues occur.
 - **Visual Switch Tester**: Interactive matrix with instant keypress feedback and latching activation history.
 
+### 8. Mechanical Sound Pack Simulator & Typing Speed Test
+- **Web Audio Sound Synthesizer**: Real-time mechanical switch sound simulation with selectable sound profiles: Thock (deep lubed linear), Clack (crisp bottom-out), Clicky (tactile click), Bubble (soft pop), Typewriter (mechanical strike), and Off.
+- **Offline Typing Speed Test**: Full-featured typing benchmark with multiple modes (Time, Words, Quote, Zen), live WPM, live accuracy, consistency tracking, weakest keys heatmap, and word practice mode. Supports English and Indonesian wordlists.
+
 ---
 
 ## 🚀 Recent Updates
 
 ### Latest Enhancements
+- **Offline Typing Speed Test & Mechanical Sound Simulator**:
+  - Added dedicated Typing Test benchmark tab with live WPM, accuracy, and key heatmap analytics.
+  - Seamless backspacing across words to fix previous typos.
+  - Integrated 100% offline Web Audio sound synthesizer for mechanical switch profiles (Thock, Clack, Clicky, Bubble, Typewriter) in both Typing Test and Switch Tester.
 - **Dynamic Header OS Layout Switcher**:
   - Moved the macOS/Windows switcher directly into the top-right header, positioned cleanly to the left of the `Connected` status indicator.
   - Automatically reads the hardware matrix table to detect the current operating layout (showing `Windows` with a cyan monitor icon or `macOS` with a white Apple icon).

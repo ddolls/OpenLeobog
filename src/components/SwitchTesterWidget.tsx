@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   switchHealthService,
   type KeyHealthState,
@@ -8,6 +8,7 @@ import {
 import { LEOBOG_HI75C_LAYOUT, type KeyDefinition } from '../types/hid';
 import { inputManager, type KnobState } from '../services/inputManager';
 import { hardwareSettingsService } from '../services/hardwareSettingsService';
+import { soundService, SOUND_PROFILES, type SoundState } from '../services/soundService';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -43,18 +44,37 @@ export const SwitchTesterWidget: React.FC = () => {
       setKnobState(knob);
     });
 
+    const unsubSound = soundService.subscribe((s) => {
+      setSoundState(s);
+    });
+
     return () => {
       unsubHealth();
       unsubInput();
       unsubKnob();
+      unsubSound();
     };
   }, []);
+
+  const [soundState, setSoundState] = useState<SoundState>(soundService.getState());
+  const [isSoundMenuOpen, setIsSoundMenuOpen] = useState<boolean>(false);
+  const soundMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isSoundMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (soundMenuRef.current && !soundMenuRef.current.contains(e.target as Node)) {
+        setIsSoundMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSoundMenuOpen]);
 
   const summary: SwitchTesterSummary = switchHealthService.getSummary();
   const keyStates: Map<number, KeyHealthState> = switchHealthService.getKeyStates();
   const chatterLogs: ChatterLogEntry[] = switchHealthService.getChatterLogs();
   const threshold = switchHealthService.getChatterThreshold();
-  const soundEnabled = switchHealthService.isSoundEnabled();
 
   const handleReset = () => {
     switchHealthService.resetAll();
@@ -178,8 +198,8 @@ export const SwitchTesterWidget: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="bg-[#101010] border border-[#222222] rounded-2xl p-6 relative overflow-hidden">
+      {/* Header Banner (overflow-visible to prevent sound dropdown clipping) */}
+      <div className="bg-[#101010] border border-[#222222] rounded-2xl p-6 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -197,13 +217,54 @@ export const SwitchTesterWidget: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => switchHealthService.setSoundEnabled(!soundEnabled)}
-              title={soundEnabled ? 'Mute Audio Tone' : 'Enable Audio Tone'}
-              className="p-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-xl text-xs transition-all cursor-pointer"
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4 text-zinc-500" />}
-            </button>
+            {/* Sound Pack Selector */}
+            <div ref={soundMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSoundMenuOpen(!isSoundMenuOpen)}
+                className="px-3 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+                title="Select Mechanical Sound Profile"
+              >
+                {soundState.enabled && soundState.soundType !== 'off' ? (
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                ) : (
+                  <VolumeX className="w-3.5 h-3.5 text-zinc-500" />
+                )}
+                <span className="font-mono text-zinc-400 text-[11px]">Sound:</span>
+                <span className="capitalize font-bold text-white">{soundState.soundType}</span>
+              </button>
+
+              {isSoundMenuOpen && (
+                <div className="absolute right-0 top-12 z-50 w-72 bg-[#141414] border border-[#2b2b2b] rounded-xl shadow-2xl p-2.5 space-y-1 text-left">
+                  <div className="text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-wider px-1">
+                    Sound Profile
+                  </div>
+                  {SOUND_PROFILES.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        soundService.setSoundType(p.id);
+                        setIsSoundMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        soundState.soundType === p.id
+                          ? 'bg-cyan-950/80 border border-cyan-800 text-cyan-200 font-bold'
+                          : 'hover:bg-zinc-800 text-zinc-300'
+                      }`}
+                    >
+                      <div>
+                        <div>{p.label}</div>
+                        <div className="text-[10px] text-zinc-500 font-normal">{p.description}</div>
+                      </div>
+                      {soundState.soundType === p.id && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-1.5" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleReset}

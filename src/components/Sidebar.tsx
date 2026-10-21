@@ -1,5 +1,4 @@
-import React from 'react';
-import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity, Timer } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -21,6 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, mobileLabel: 'Home' },
+    { id: 'typing-test', label: 'Typing Test', icon: Timer, mobileLabel: 'Typing' },
     { id: 'rgb', label: 'RGB Lighting', icon: Palette, mobileLabel: 'RGB' },
     { id: 'settings', label: 'Hardware Settings', icon: Sliders, mobileLabel: 'Settings' },
     { id: 'switch-tester', label: 'Switch Tester', icon: Activity, mobileLabel: 'Tester' },

@@ -1,6 +1,6 @@
-// Switch Health & Contact Chatter Diagnostics Service for Mechanical Keyboards
 import { LEOBOG_HI75C_LAYOUT } from '../types/hid';
 import { hardwareSettingsService } from './hardwareSettingsService';
+import { soundService } from './soundService';
 
 export interface KeyHealthState {
   matrixIdx: number;
@@ -43,7 +43,6 @@ class SwitchHealthService {
   private chatterLogs: ChatterLogEntry[] = [];
   private chatterThresholdMs: number = 25; // Milliseconds threshold for chatter detection (default 25ms)
   private soundEnabled: boolean = true;
-  private audioCtx: AudioContext | null = null;
   private listeners: (() => void)[] = [];
 
   constructor() {
@@ -105,41 +104,7 @@ class SwitchHealthService {
   private playTone(isChatter: boolean) {
     if (!this.soundEnabled) return;
     try {
-      if (!this.audioCtx) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
-        this.audioCtx = new AudioContextClass();
-      }
-
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
-
-      const now = this.audioCtx.currentTime;
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
-
-      if (isChatter) {
-        // Discordant low buzzer for chatter warning
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
-      } else {
-        // High crisp tactile blip for clean keystroke
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        gain.gain.setValueAtTime(0.06, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
-      }
+      soundService.playKeypress(isChatter);
     } catch {
       // Audio playback failed or blocked
     }
