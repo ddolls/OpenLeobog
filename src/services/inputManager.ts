@@ -111,19 +111,19 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   ArrowDown: 83,
   PrintScreen: 84,
   Delete: 85,
-  PageUp: 86,
-  PageDown: 87,
-  End: 88, // Physical End = Matrix 88
-  ArrowRight: 89, // Physical Right Arrow = Matrix 89
+  End: 86,
+  PageUp: 87,
+  PageDown: 88,
+  ArrowRight: 89,
 
-  // Media / Rotary Knob
-  AudioVolumeMute: 99,
-  VolumeMute: 99,
-  AudioVolumeUp: 99,
-  VolumeUp: 99,
-  AudioVolumeDown: 99,
-  VolumeDown: 99,
-  MediaPlayPause: 99,
+  // Media / Rotary Knob (Matrix 84 - verified via official LEOBOG ONE KB.ini K82)
+  AudioVolumeMute: 84,
+  VolumeMute: 84,
+  AudioVolumeUp: 84,
+  VolumeUp: 84,
+  AudioVolumeDown: 84,
+  VolumeDown: 84,
+  MediaPlayPause: 84,
 };
 
 // Friendly key display labels
@@ -245,26 +245,26 @@ class InputManager {
       this.knobState.lastAction = 'up';
       this.knobState.isActive = true;
       this.pressedCodes.add('AudioVolumeUp');
-      this.logDebug('DOM', 'AudioVolumeUp', 'Vol+', 99);
+      this.logDebug('DOM', 'AudioVolumeUp', 'Vol+', 84);
     } else if (action === 'down') {
       this.knobState.rotation -= 18;
       this.knobState.lastAction = 'down';
       this.knobState.isActive = true;
       this.pressedCodes.add('AudioVolumeDown');
-      this.logDebug('DOM', 'AudioVolumeDown', 'Vol-', 99);
+      this.logDebug('DOM', 'AudioVolumeDown', 'Vol-', 84);
     } else {
       this.knobState.lastAction = 'mute';
       this.knobState.isActive = true;
       this.pressedCodes.add('AudioVolumeMute');
-      this.logDebug('DOM', 'AudioVolumeMute', 'Mute', 99);
+      this.logDebug('DOM', 'AudioVolumeMute', 'Mute', 84);
     }
 
-    this.pressedMatrixIndices.add(99);
+    this.pressedMatrixIndices.add(84);
     this.notify();
 
     if (this.knobTimer) clearTimeout(this.knobTimer);
     this.knobTimer = setTimeout(() => {
-      this.pressedMatrixIndices.delete(99);
+      this.pressedMatrixIndices.delete(84);
       this.pressedCodes.delete('AudioVolumeUp');
       this.pressedCodes.delete('AudioVolumeDown');
       this.pressedCodes.delete('AudioVolumeMute');

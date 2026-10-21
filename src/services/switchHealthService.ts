@@ -248,7 +248,7 @@ class SwitchHealthService {
     let fastestBounceMs: number | null = null;
 
     this.keyStates.forEach((state) => {
-      if (state.matrixIdx === 99) return;
+      if (state.matrixIdx === 84) return; // Ignore rotary knob in switch chatter testing
       totalKeystrokes += state.pressCount;
       if (state.pressCount > 0) testedKeysCount++;
       if (state.chatterCount > 0) {

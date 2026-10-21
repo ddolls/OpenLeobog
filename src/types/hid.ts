@@ -112,19 +112,34 @@ export const DEFAULT_MATRIX_USAGES: Record<number, number> = {
   81: 0x28, // Enter (Matrix 81)
   82: 0x52, // Up Arrow
   83: 0x51, // Down Arrow
-  84: 0x46, // PrtSc
-  85: 0x4C, // Del
-  86: 0x4B, // PgUp
-  87: 0x4E, // PgDn
-  88: 0x4D, // End (Matrix 88)
+  84: 0xE2, // Rotary Volume Knob (Matrix 84 - verified via official LEOBOG ONE KB.ini)
+  85: 0x4C, // Delete
+  86: 0x4D, // End (Matrix 86)
+  87: 0x4B, // PgUp (Matrix 87)
+  88: 0x4E, // PgDn (Matrix 88)
   89: 0x4F, // Right Arrow (Matrix 89)
-  99: 0xE2, // Rotary Volume Knob (Matrix 99)
 };
+
+export const CONSUMER_CALCULATOR = 0x0192;
+export const CONSUMER_MUTE       = 0x10E2;
+export const CONSUMER_VOL_DOWN   = 0x10EA;
+export const CONSUMER_VOL_UP     = 0x10E9;
+export const CONSUMER_PLAY_PAUSE = 0x10CD;
+export const CONSUMER_NEXT       = 0x10B5;
+export const CONSUMER_PREV       = 0x10B6;
+export const CONSUMER_EMAIL      = 0x018A;
 
 // Decode 4-byte matrix record into logical HID usage (simple single-usage view)
 export function parseKeyRecordUsage(bytes: [number, number, number, number] | undefined | null): number {
   if (!bytes || bytes.length < 4) return 0;
   if (bytes[0] === 13) return 0xFF;  // Fn Key
+  if (bytes[0] === 2) {
+    // Consumer Control (Media / Calculator)
+    if (bytes[2] === 1 && bytes[3] === 0x92) return CONSUMER_CALCULATOR;
+    if (bytes[2] === 1 && bytes[3] === 0x8A) return CONSUMER_EMAIL;
+    if (bytes[3] !== 0) return 0x1000 | bytes[3];
+    return 0x0200;
+  }
   // If it's a combo (modifier + key), return the key part for display
   if (bytes[1] !== 0 && bytes[3] !== 0) return bytes[3] || 0; // Combo — show key part
   if (bytes[1] === 0x01) return 0xE0; // Left Control
@@ -184,12 +199,23 @@ export function getModifierLabels(modBitmask: number): string[] {
   return labels;
 }
 
-// Format combo record as user-friendly label like "Ctrl+Shift+C"
+// Format combo record as user-friendly label like "Ctrl+Shift+C" or "Calculator"
 export function formatComboLabel(bytes: [number, number, number, number] | undefined | null): string {
   if (!bytes || bytes.length < 4) return 'Default';
-  const combo = parseComboRecord(bytes);
-  if (combo.isFnKey) return 'Fn Key';
+  if (bytes[0] === 13) return 'Fn Key';
+  if (bytes[0] === 2) {
+    if (bytes[2] === 1 && bytes[3] === 0x92) return 'Calculator';
+    if (bytes[2] === 1 && bytes[3] === 0x8A) return 'Email';
+    if (bytes[3] === 0xE2) return 'Volume Mute';
+    if (bytes[3] === 0xEA) return 'Volume Down';
+    if (bytes[3] === 0xE9) return 'Volume Up';
+    if (bytes[3] === 0xCD) return 'Play / Pause';
+    if (bytes[3] === 0xB5) return 'Next Track';
+    if (bytes[3] === 0xB6) return 'Previous Track';
+    return `Media (0x${bytes[3].toString(16).toUpperCase()})`;
+  }
   
+  const combo = parseComboRecord(bytes);
   const parts: string[] = getModifierLabels(combo.modifiers);
   
   if (combo.keyUsage !== 0 && typeof combo.keyUsage === 'number' && !isNaN(combo.keyUsage)) {
@@ -202,7 +228,7 @@ export function formatComboLabel(bytes: [number, number, number, number] | undef
   return parts.join(' + ');
 }
 
-// Encode HID usage into 4-byte matrix record format for Table 0 base write
+// Encode HID usage into 4-byte matrix record format for Table 0 base write or Table 1 FN write
 export function encodeKeyRecordBytes(hidUsage: number): [number, number, number, number] {
   if (hidUsage === 0xE0) return [0, 0x01, 0, 0]; // LCtrl
   if (hidUsage === 0xE1) return [0, 0x02, 0, 0]; // LShift
@@ -213,6 +239,13 @@ export function encodeKeyRecordBytes(hidUsage: number): [number, number, number,
   if (hidUsage === 0xE6) return [0, 0x40, 0, 0]; // RAlt
   if (hidUsage === 0xE7) return [0, 0x80, 0, 0]; // RWin / RGUI
   if (hidUsage === 0xFF) return [13, 0, 0, 0];   // Fn Key
+
+  // Consumer Control (Calculator, Volume, Media)
+  if (hidUsage === CONSUMER_CALCULATOR) return [2, 0, 1, 0x92];
+  if (hidUsage === CONSUMER_EMAIL) return [2, 0, 1, 0x8A];
+  if ((hidUsage & 0xFF00) === 0x1000) {
+    return [2, 0, 0, hidUsage & 0xFF];
+  }
 
   // Standard Key (e.g. Q -> K [0, 0, 0, 0x0E], A -> B [0, 0, 0, 0x05])
   return [0, 0, 0, hidUsage];
@@ -240,7 +273,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 66, label: 'F10', row: 0, col: 11.75 },
   { matrixIdx: 72, label: 'F11', row: 0, col: 12.75 },
   { matrixIdx: 78, label: 'F12', row: 0, col: 13.75 },
-  { matrixIdx: 99, label: 'Knob', row: 0, col: 15, isKnob: true },
+  { matrixIdx: 84, label: 'Knob', row: 0, col: 15, isKnob: true },
 
   // Row 1: `~, 1-0, -, =, Backspace, Delete
   { matrixIdx: 1, label: '`', row: 1, col: 0 },
@@ -274,7 +307,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 68, label: '[', row: 2, col: 11.5 },
   { matrixIdx: 74, label: ']', row: 2, col: 12.5 },
   { matrixIdx: 80, label: '\\', width: 1.5, row: 2, col: 13.5 },
-  { matrixIdx: 88, label: 'End', row: 2, col: 15, category: 'nav' },
+  { matrixIdx: 86, label: 'End', row: 2, col: 15, category: 'nav' },
 
   // Row 3: Caps, ASDFGHJKL, ;, ', Enter, PgUp
   { matrixIdx: 3, label: 'Caps', width: 1.75, row: 3, col: 0 },
@@ -290,7 +323,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 63, label: ';', row: 3, col: 10.75 },
   { matrixIdx: 69, label: "'", row: 3, col: 11.75 },
   { matrixIdx: 81, label: 'Enter', width: 2.25, row: 3, col: 12.75 },
-  { matrixIdx: 86, label: 'PgUp', row: 3, col: 15, category: 'nav' },
+  { matrixIdx: 87, label: 'PgUp', row: 3, col: 15, category: 'nav' },
 
   // Row 4: LShift, ZXCVBNM, ,, ., /, RShift, Up, PgDn
   { matrixIdx: 4, label: 'LShift', width: 2.25, row: 4, col: 0, category: 'modifier' },
@@ -306,7 +339,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 64, label: '/', row: 4, col: 11.25 },
   { matrixIdx: 70, label: 'RShift', width: 1.75, row: 4, col: 12.25, category: 'modifier' },
   { matrixIdx: 82, label: '▲', row: 4, col: 14, category: 'nav' },
-  { matrixIdx: 87, label: 'PgDn', row: 4, col: 15, category: 'nav' },
+  { matrixIdx: 88, label: 'PgDn', row: 4, col: 15, category: 'nav' },
 
   // Row 5: LCtrl, Win, LAlt, Space, RAlt, Fn, RCtrl, Left, Down, Right
   { matrixIdx: 5, label: 'LCtrl', width: 1.25, row: 5, col: 0, category: 'modifier' },
@@ -417,12 +450,15 @@ export const HID_USAGES: HIDUsageItem[] = [
   { usage: 0x51, label: 'Down Arrow', category: 'Navigation' },
   { usage: 0x52, label: 'Up Arrow', category: 'Navigation' },
 
-  // Media
-  { usage: 0xE9, label: 'Volume Up', category: 'Media' },
-  { usage: 0xEA, label: 'Volume Down', category: 'Media' },
-  { usage: 0xCD, label: 'Play / Pause', category: 'Media' },
-  { usage: 0xB5, label: 'Next Track', category: 'Media' },
-  { usage: 0xB6, label: 'Previous Track', category: 'Media' },
+  // Media & Consumer Control
+  { usage: CONSUMER_CALCULATOR, label: 'Calculator', category: 'Media' },
+  { usage: CONSUMER_MUTE, label: 'Volume Mute', category: 'Media' },
+  { usage: CONSUMER_VOL_DOWN, label: 'Volume Down', category: 'Media' },
+  { usage: CONSUMER_VOL_UP, label: 'Volume Up', category: 'Media' },
+  { usage: CONSUMER_PLAY_PAUSE, label: 'Play / Pause', category: 'Media' },
+  { usage: CONSUMER_NEXT, label: 'Next Track', category: 'Media' },
+  { usage: CONSUMER_PREV, label: 'Previous Track', category: 'Media' },
+  { usage: CONSUMER_EMAIL, label: 'Email', category: 'Media' },
 
   // Special
   { usage: 0xFF, label: 'Fn Key (Special)', category: 'Special' },

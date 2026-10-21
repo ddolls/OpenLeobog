@@ -8,6 +8,7 @@ export interface WebHIDState {
   firmwareVersion?: string;
   matrixData: Uint8Array | null;
   records: Map<number, KeyRecord>;
+  fnRecords?: Map<number, KeyRecord>;
   modifiedCount: number;
   logs: string[];
 }
@@ -59,14 +60,16 @@ class WebHIDController {
 
       this.log('Checking existing authorized HID devices...');
       let existing = await hidNav.getDevices();
-      let matched = existing.find((d: any) => d.vendorId === 0x258A);
+      let matched = existing.find((d: any) => d.vendorId === 0x258A || d.vendorId === 0x3554);
 
       if (!matched) {
-        this.log('Requesting HID device picker (VID: 0x258A)...');
+        this.log('Requesting HID device picker (VID: 0x258A / 0x3554)...');
         const devices = await hidNav.requestDevice({
           filters: [
             { vendorId: 0x258A, productId: 0x010C },
-            { vendorId: 0x258A }
+            { vendorId: 0x258A },
+            { vendorId: 0x3554, productId: 0xFA09 },
+            { vendorId: 0x3554 }
           ]
         });
 
@@ -78,7 +81,7 @@ class WebHIDController {
       }
 
       const allDevices = await hidNav.getDevices();
-      const targetDevs = allDevices.filter((d: any) => d.vendorId === 0x258A);
+      const targetDevs = allDevices.filter((d: any) => d.vendorId === 0x258A || d.vendorId === 0x3554);
       
       this.device = targetDevs.find((d: any) => 
         (d.collections || []).some((c: any) => 
@@ -179,6 +182,101 @@ class WebHIDController {
     return true;
   }
 
+  // Read FN Table (Packet Index 1 - 512 bytes)
+  public async readFnTable(): Promise<Uint8Array> {
+    if (!this.device || !this.device.opened) {
+      throw new Error('Device not connected');
+    }
+
+    const query = new Uint8Array(519);
+    query[0] = 0x83;
+    query[1] = 0;
+    query[2] = 0;
+    query[3] = 1; // 1 packet
+    query[4] = 1; // Packet Index 1 (FN Table)
+    query[5] = 0;
+    query[6] = 2; // 512 bytes
+
+    await this.device.sendFeatureReport(6, query);
+    await new Promise(r => setTimeout(r, 20));
+
+    const res = await this.device.receiveFeatureReport(6);
+    const data = new Uint8Array(res.buffer, res.byteOffset, res.byteLength);
+    const base = (data[0] === 6 && data[1] === 0x83) ? 1 : 0;
+    return data.slice(base + 7, base + 519);
+  }
+
+  // Write FN Table (Packet Index 1 - 512 bytes)
+  public async writeFnTable(fnTableData: Uint8Array): Promise<boolean> {
+    if (!this.device || !this.device.opened) {
+      throw new Error('Device not connected');
+    }
+
+    if (fnTableData.length !== 512) {
+      throw new Error('FN Table data must be exactly 512 bytes');
+    }
+
+    const query = new Uint8Array(519);
+    query[0] = 0x03; // Command SET
+    query[1] = 0;
+    query[2] = 0;
+    query[3] = 1; // 1 packet
+    query[4] = 1; // Packet Index 1 (FN Table)
+    query[5] = 0;
+    query[6] = 2; // 512 bytes
+    query.set(fnTableData, 7);
+
+    await this.device.sendFeatureReport(6, query);
+    await new Promise(r => setTimeout(r, 30));
+    return true;
+  }
+
+  // Write FN key remap using safe Read-Modify-Write pattern
+  public async writeFnKeyRemap(matrixIdx: number, newUsage: number): Promise<boolean> {
+    const newBytes = encodeKeyRecordBytes(newUsage);
+    return await this.writeFnKeyRemapRaw(matrixIdx, newBytes);
+  }
+
+  public async writeFnKeyRemapRaw(matrixIdx: number, rawBytes: [number, number, number, number]): Promise<boolean> {
+    if (!this.device || !this.device.opened) {
+      this.log(`[Offline Mode] Simulated FN key remap for matrix ${matrixIdx} -> [${rawBytes.join(', ')}]`);
+      return true;
+    }
+
+    try {
+      this.log(`Reading current FN table (readFnTable)...`);
+      const fnBase = await this.readFnTable();
+      const working = new Uint8Array(fnBase);
+
+      const offset = matrixIdx * 4;
+      this.log(`Staging FN matrix #${matrixIdx} (offset ${offset}) to [${rawBytes.join(', ')}]...`);
+
+      working[offset] = rawBytes[0];
+      working[offset + 1] = rawBytes[1];
+      working[offset + 2] = rawBytes[2];
+      working[offset + 3] = rawBytes[3];
+
+      this.log(`Writing FN table (writeFnTable)...`);
+      await this.writeFnTable(working);
+
+      this.log('Verifying FN write with readFnTable()...');
+      const got = await this.readFnTable();
+      const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
+      this.log(`Read-back check for FN Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
+
+      if (verifiedBytes.join(',') !== rawBytes.join(',')) {
+        throw new Error(`Verification failed at FN matrix ${matrixIdx}: expected [${rawBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+      }
+
+      this.log(`FN APPLY VERIFIED: Matrix #${matrixIdx} FN shortcut successfully remapped!`);
+      await this.readMatrixData();
+      return true;
+    } catch (err: any) {
+      this.log(`FN APPLY ERROR: ${err.message}`);
+      return false;
+    }
+  }
+
   public async readMatrixData(): Promise<Uint8Array | null> {
     if (!this.device || !this.device.opened) {
       this.log('Cannot read matrix: Device not connected');
@@ -231,16 +329,50 @@ class WebHIDController {
         });
       }
 
+      // Read FN table (Packet 1)
+      let fnTable: Uint8Array | null = null;
+      try {
+        this.log('Reading FN 512-byte shortcut table (Packet 1)...');
+        fnTable = await this.readFnTable();
+      } catch (err) {
+        this.log('Device returned no secondary packet, using stock FN template.');
+        fnTable = new Uint8Array(PRISTINE_STAGE5_MATRIX[1]);
+      }
+
+      const fnRecords = new Map<number, KeyRecord>();
+      if (fnTable) {
+        for (let idx = 0; idx < 128; idx++) {
+          const offset = idx * 4;
+          const bytes: [number, number, number, number] = [
+            fnTable[offset],
+            fnTable[offset + 1],
+            fnTable[offset + 2],
+            fnTable[offset + 3]
+          ];
+          const stockBytes = PRISTINE_STAGE5_MATRIX[1].slice(offset, offset + 4);
+          const hidUsage = parseKeyRecordUsage(bytes);
+          const originalUsage = parseKeyRecordUsage([stockBytes[0], stockBytes[1], stockBytes[2], stockBytes[3]]);
+          fnRecords.set(idx, {
+            matrixIdx: idx,
+            hidUsage,
+            originalUsage,
+            bytes
+          });
+        }
+      }
+
       const full1024 = new Uint8Array(1024);
       full1024.set(baseTable, 0);
+      if (fnTable) full1024.set(fnTable, 512);
 
       this.notify({
         matrixData: full1024,
         records,
+        fnRecords,
         modifiedCount
       });
 
-      this.log(`Base table loaded: 512 bytes parsed. ${modifiedCount} modified key mappings.`);
+      this.log(`Base and FN tables loaded: 1024 bytes parsed. ${modifiedCount} modified key mappings.`);
       return full1024;
     } catch (err: any) {
       this.log(`Read base matrix failed: ${err.message}`);

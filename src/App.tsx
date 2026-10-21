@@ -225,19 +225,17 @@ export function App() {
 
               <LiveInputWidget records={hidState.records} />
 
-              {/* Only render Keymap & Shortcut Inspector in Dev Mode */}
-              {userMode === 'dev' && (
-                <KeyRemapPanel
-                  selectedMatrixIdx={selectedMatrixIdx}
-                  records={hidState.records}
-                  onApplyRemap={handleApplyRemap}
-                  onApplyComboRemap={handleApplyComboRemap}
-                  onSwapWinAlt={handleSwapWinAlt}
-                  onResetKey={handleResetKey}
-                  onResetAll={handleResetAll}
-                  isDevMode={true}
-                />
-              )}
+              {/* Keymap & Shortcut Inspector (Active in both Safe Mode and Dev Mode) */}
+              <KeyRemapPanel
+                selectedMatrixIdx={selectedMatrixIdx}
+                records={hidState.records}
+                onApplyRemap={handleApplyRemap}
+                onApplyComboRemap={handleApplyComboRemap}
+                onSwapWinAlt={handleSwapWinAlt}
+                onResetKey={handleResetKey}
+                onResetAll={handleResetAll}
+                isDevMode={userMode === 'dev'}
+              />
             </div>
           )}
 
@@ -315,7 +313,16 @@ export function App() {
                 className="text-white hover:text-rose-400 font-bold underline underline-offset-4 decoration-zinc-600 hover:decoration-rose-400 transition-colors cursor-pointer"
               >
                 Mickey Montana
-              </button>
+              </button>{' '}
+              &amp;{' '}
+              <a
+                href="https://www.tiktok.com/@pacarnyapharitaaa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white hover:text-rose-400 font-bold underline underline-offset-4 decoration-zinc-600 hover:decoration-rose-400 transition-colors cursor-pointer"
+              >
+                Pharita
+              </a>
             </span>
           </div>
         </footer>
