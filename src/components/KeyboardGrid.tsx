@@ -125,7 +125,12 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
               }
 
               const widthPx = (keyDef.width || 1) * 38 + ((keyDef.width || 1) - 1) * 6;
-              const displayLabel = keyDef.label;
+              const isMac = records.get(11)?.hidUsage === 0xE2 && records.get(17)?.hidUsage === 0xE3;
+              let displayLabel = keyDef.label;
+              if (isMac) {
+                if (keyDef.matrixIdx === 11) displayLabel = '⌥ Opt';
+                if (keyDef.matrixIdx === 17) displayLabel = '⌘ Cmd';
+              }
               const comboLabel = record && record.bytes ? formatComboLabel(record.bytes) : displayLabel;
               const currentUsageLabel = isModified ? comboLabel : (currentUsage !== null ? getUsageLabel(currentUsage) : displayLabel);
               const keyRgb =

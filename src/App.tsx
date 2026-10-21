@@ -137,6 +137,21 @@ export function App() {
     }
   };
 
+  const isMacLayout =
+    hidState.records.get(11)?.hidUsage === 0xE2 && hidState.records.get(17)?.hidUsage === 0xE3;
+
+  const handleApplyMacLayout = async () => {
+    await handleApplyRemap(11, 0xE2); // Set Matrix 11 to Left Alt (Option ⌥)
+    await handleApplyRemap(17, 0xE3); // Set Matrix 17 to Left Win (Command ⌘)
+    webhid.log('Applied Apple macOS layout (Option ⌥ on Matrix #11, Command ⌘ on Matrix #17)');
+  };
+
+  const handleApplyWindowsLayout = async () => {
+    await handleApplyRemap(11, 0xE3); // Set Matrix 11 to Left Win (Windows ⊞)
+    await handleApplyRemap(17, 0xE2); // Set Matrix 17 to Left Alt (Alt)
+    webhid.log('Applied Windows PC layout (Win ⊞ on Matrix #11, Alt on Matrix #17)');
+  };
+
   const handleSwapWinAlt = async () => {
     const currentWin = hidState.records.get(11)?.hidUsage || 0xE3;
     const currentAlt = hidState.records.get(17)?.hidUsage || 0xE2;
@@ -236,6 +251,9 @@ export function App() {
                 onResetKey={handleResetKey}
                 onResetAll={handleResetAll}
                 isDevMode={userMode === 'dev'}
+                isMacLayout={isMacLayout}
+                onApplyMacLayout={handleApplyMacLayout}
+                onApplyWindowsLayout={handleApplyWindowsLayout}
               />
             </div>
           )}

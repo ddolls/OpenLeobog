@@ -6,6 +6,11 @@ import {
   Power,
   RefreshCw,
   Lock,
+  Paintbrush,
+  Crosshair,
+  Gamepad2,
+  Navigation,
+  Sparkles,
 } from 'lucide-react';
 import {
   LEOBOG_RGB_EFFECTS,
@@ -29,6 +34,15 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const [brushColor, setBrushColor] = useState<string>('#00e5ff');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [hexInput, setHexInput] = useState<string>(rgbState.staticColor?.toUpperCase() || '#00E5FF');
+  const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
+  const [isBrushMode, setIsBrushMode] = useState<boolean>(true);
+
+  // Global mouse up listener for smooth paint brush dragging across keys
+  useEffect(() => {
+    const handleMouseUp = () => setIsMouseDown(false);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = rgbService.subscribe((state) => {
@@ -181,30 +195,91 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     rgbService.applyPerKeyPlanar(cleared);
   };
 
-  const handleGamerPreset = () => {
-    const gamer: Record<number, string> = {};
-    // Base dark indigo for all
+  // 1-Click Zone Preset: FPS Focus (WASD + Space + Shift + LCtrl in Neon Red/Cyan)
+  const handleFpsPreset = () => {
+    const fps: Record<number, string> = {};
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
-      gamer[k.matrixIdx] = '#080c14';
+      fps[k.matrixIdx] = '#06080e';
     });
-    // WASD in Neon Magenta
+    // WASD in Vivid Crimson
     [14, 9, 15, 21].forEach((idx) => {
-      gamer[idx] = '#ff007f';
+      fps[idx] = '#ff0055';
     });
-    // Arrow keys in Cyber Cyan
-    [82, 77, 83, 89].forEach((idx) => {
-      gamer[idx] = '#00e5ff';
+    // Modifiers in Electric Cyan
+    [35, 4, 5].forEach((idx) => {
+      fps[idx] = '#00ffff';
     });
-    // Number keys in Gold
-    [7, 13, 19, 25, 31, 37, 43, 49, 55, 61].forEach((idx) => {
-      gamer[idx] = '#ffb300';
+    // Numbers 1-5 in Gold
+    [7, 13, 19, 25, 31].forEach((idx) => {
+      fps[idx] = '#ffb300';
     });
-    // Space & Enter in Pure White
-    [35, 81].forEach((idx) => {
-      gamer[idx] = '#ffffff';
-    });
+    rgbService.applyPerKeyPlanar(fps);
+  };
 
-    rgbService.applyPerKeyPlanar(gamer);
+  // 1-Click Zone Preset: MOBA Cluster (QWER + DF + 1-6)
+  const handleMobaPreset = () => {
+    const moba: Record<number, string> = {};
+    LEOBOG_HI75C_LAYOUT.forEach((k) => {
+      moba[k.matrixIdx] = '#06080e';
+    });
+    // Abilities Q, W, E, R in Royal Violet
+    [8, 14, 20, 26].forEach((idx) => {
+      moba[idx] = '#a855f7';
+    });
+    // Summoner Spells D & F in Radiant Amber
+    [21, 27].forEach((idx) => {
+      moba[idx] = '#f59e0b';
+    });
+    // Inventory Items 1-6 in Bright Sky Blue
+    [7, 13, 19, 25, 31, 37].forEach((idx) => {
+      moba[idx] = '#06b6d4';
+    });
+    // Spacebar in Pure White
+    moba[35] = '#ffffff';
+    rgbService.applyPerKeyPlanar(moba);
+  };
+
+  // 1-Click Zone Preset: Arrows & Navigation Cluster
+  const handleArrowNavPreset = () => {
+    const nav: Record<number, string> = {};
+    LEOBOG_HI75C_LAYOUT.forEach((k) => {
+      nav[k.matrixIdx] = '#06080e';
+    });
+    // Arrow keys in Emerald
+    [82, 77, 83, 89].forEach((idx) => {
+      nav[idx] = '#10b981';
+    });
+    // Nav Block: Del, End, PgUp, PgDn in Cyber Cyan
+    [85, 86, 87, 88].forEach((idx) => {
+      nav[idx] = '#06b6d4';
+    });
+    // Esc in Coral Red
+    nav[0] = '#f43f5e';
+    rgbService.applyPerKeyPlanar(nav);
+  };
+
+  // 1-Click Zone Preset: Function Row F1-F12 Gradient
+  const handleFunctionRowPreset = () => {
+    const fRow: Record<number, string> = {};
+    LEOBOG_HI75C_LAYOUT.forEach((k) => {
+      fRow[k.matrixIdx] = '#06080e';
+    });
+    const fKeys = [0, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78];
+    fKeys.forEach((idx, i) => {
+      const hue = Math.round((i / (fKeys.length - 1)) * 320);
+      fRow[idx] = hslToHex(hue, 100, 50);
+    });
+    rgbService.applyPerKeyPlanar(fRow);
+  };
+
+  // 1-Click Zone Preset: Cyberpunk Neon Matrix
+  const handleCyberpunkWave = () => {
+    const cyber: Record<number, string> = {};
+    LEOBOG_HI75C_LAYOUT.forEach((k) => {
+      const step = (k.row * 2 + k.col) % 16;
+      cyber[k.matrixIdx] = step % 2 === 0 ? '#ff007f' : '#00e5ff';
+    });
+    rgbService.applyPerKeyPlanar(cyber);
   };
 
   const handleRainbowGradient = () => {
@@ -694,39 +769,94 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
               </div>
             </div>
 
-            {/* Quick Action Tools */}
-            <div className="flex items-center gap-2">
+            {/* Gaming Zone Presets & Paint Tools Toolbar */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsBrushMode(!isBrushMode)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isBrushMode
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                    : 'bg-[#181818] hover:bg-[#222222] border-[#2a2a2a] text-zinc-400'
+                }`}
+                title="When ON: Click and drag your mouse across keys to paint them smoothly"
+              >
+                <Paintbrush className="w-3.5 h-3.5" />
+                <span>Drag Brush: {isBrushMode ? 'ACTIVE' : 'OFF'}</span>
+              </button>
+
+              <div className="h-4 w-px bg-zinc-800 mx-0.5" />
+
+              <button
+                onClick={handleFpsPreset}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-rose-400 hover:text-rose-300 transition-all flex items-center gap-1 cursor-pointer"
+                title="WASD + Space + LShift in Neon Crimson/Cyan"
+              >
+                <Crosshair className="w-3 h-3 text-rose-500" />
+                <span>FPS Zone</span>
+              </button>
+
+              <button
+                onClick={handleMobaPreset}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-purple-400 hover:text-purple-300 transition-all flex items-center gap-1 cursor-pointer"
+                title="QWER + DF + 1-6 in Royal Violet and Amber Gold"
+              >
+                <Gamepad2 className="w-3 h-3 text-purple-400" />
+                <span>MOBA Zone</span>
+              </button>
+
+              <button
+                onClick={handleArrowNavPreset}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-all flex items-center gap-1 cursor-pointer"
+                title="Arrow Keys in Emerald Green & Nav in Cyber Cyan"
+              >
+                <Navigation className="w-3 h-3 text-emerald-400" />
+                <span>Arrow &amp; Nav</span>
+              </button>
+
+              <button
+                onClick={handleFunctionRowPreset}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1 cursor-pointer"
+                title="F1-F12 Function Row Gradient"
+              >
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>F-Row Wave</span>
+              </button>
+
+              <button
+                onClick={handleCyberpunkWave}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-pink-400 hover:text-pink-300 transition-all cursor-pointer"
+                title="Cyberpunk Neon Magenta & Cyan Matrix"
+              >
+                Cyberpunk
+              </button>
+
+              <button
+                onClick={handleRainbowGradient}
+                className="px-2.5 py-1.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#2a2a2a] text-xs font-medium text-sky-400 hover:text-sky-300 transition-all cursor-pointer"
+                title="Full Board Rainbow Spectrum"
+              >
+                Rainbow
+              </button>
+
+              <div className="h-4 w-px bg-zinc-800 mx-0.5" />
+
               <button
                 onClick={handleFillAll}
-                className="px-3 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-semibold text-zinc-300 hover:text-white transition-all"
+                className="px-2.5 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer"
               >
                 Fill All
               </button>
 
               <button
-                onClick={handleGamerPreset}
-                className="px-3 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-all"
-              >
-                WASD Gamer Map
-              </button>
-
-              <button
-                onClick={handleRainbowGradient}
-                className="px-3 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-semibold text-amber-400 hover:text-amber-300 transition-all"
-              >
-                Rainbow Spectrum
-              </button>
-
-              <button
                 onClick={handleClearAll}
-                className="px-3 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-semibold text-red-400 hover:text-red-300 transition-all flex items-center gap-1.5"
+                className="px-2.5 py-1.5 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-medium text-red-400 hover:text-red-300 transition-all flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" /> Clear
               </button>
 
               <button
                 onClick={handleSaveToFlash}
-                className="px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer ml-auto"
               >
                 <Check className="w-3.5 h-3.5" /> Save to Keyboard
               </button>
@@ -741,8 +871,9 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
 
           {/* Interactive Keyboard Canvas */}
           <div className="bg-[#0b0b0b] border border-[#222222] rounded-2xl p-6 flex flex-col items-center justify-center space-y-4 shadow-2xl">
-            <div className="text-[11px] text-zinc-500 font-mono text-center">
-              Click any key below to paint it with the active brush color. Keys light up in real time.
+            <div className="text-[11px] text-zinc-400 font-mono text-center flex items-center justify-center gap-2">
+              <Paintbrush className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{isBrushMode ? 'Drag Brush Active: Click and drag over keys to paint multiple keys at once.' : 'Single Click Mode: Click any key to paint with active color.'}</span>
             </div>
 
             <div className="w-full overflow-x-auto pb-2 pt-1 touch-pan-x select-none">
@@ -766,7 +897,14 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                             key={keyDef.matrixIdx}
                             style={{ left: `${keyDef.col * 44}px`, width: '38px' }}
                             className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-pointer group"
-                            onClick={() => handleKeyPaint(keyDef.matrixIdx)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setIsMouseDown(true);
+                              handleKeyPaint(keyDef.matrixIdx);
+                            }}
+                            onMouseEnter={() => {
+                              if (isMouseDown && isBrushMode) handleKeyPaint(keyDef.matrixIdx);
+                            }}
                           >
                             <div
                               className="w-9 h-9 rounded-full border flex items-center justify-center transition-all shadow-md"
@@ -787,7 +925,16 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                       return (
                         <button
                           key={keyDef.matrixIdx}
-                          onClick={() => handleKeyPaint(keyDef.matrixIdx)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsMouseDown(true);
+                            handleKeyPaint(keyDef.matrixIdx);
+                          }}
+                          onMouseEnter={() => {
+                            if (isMouseDown && isBrushMode) {
+                              handleKeyPaint(keyDef.matrixIdx);
+                            }
+                          }}
                           style={{
                             width: `${widthPx}px`,
                             left: `${keyDef.col * 44}px`,

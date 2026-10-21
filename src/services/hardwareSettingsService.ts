@@ -126,6 +126,10 @@ class HardwareSettingsService {
     this.notify();
   }
 
+  public setDebounceStage(stage: number) {
+    this.updateSettings({ debounceStage: Math.max(1, Math.min(5, stage)) });
+  }
+
   public resetToDefaults() {
     this.settings = { ...DEFAULT_SETTINGS };
     this.notify();

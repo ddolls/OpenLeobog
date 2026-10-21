@@ -7,6 +7,7 @@ import {
 } from '../services/switchHealthService';
 import { LEOBOG_HI75C_LAYOUT, type KeyDefinition } from '../types/hid';
 import { inputManager, type KnobState } from '../services/inputManager';
+import { hardwareSettingsService } from '../services/hardwareSettingsService';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,6 +17,8 @@ import {
   Download,
   ShieldAlert,
   Info,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 
 export const SwitchTesterWidget: React.FC = () => {
@@ -23,6 +26,8 @@ export const SwitchTesterWidget: React.FC = () => {
   const [pressedIndices, setPressedIndices] = useState<Set<number>>(new Set());
   const [knobState, setKnobState] = useState<KnobState>(inputManager.getKnobState());
   const [selectedKeyIdx, setSelectedKeyIdx] = useState<number | null>(null);
+  const [isApplyingDebounce, setIsApplyingDebounce] = useState<boolean>(false);
+  const [debounceToast, setDebounceToast] = useState<{ text: string; isError: boolean } | null>(null);
 
   // Subscribe to switch health updates and inputs
   useEffect(() => {
@@ -66,6 +71,74 @@ export const SwitchTesterWidget: React.FC = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleApplyDebounceStage = async (stage: number) => {
+    setIsApplyingDebounce(true);
+    setDebounceToast(null);
+    try {
+      hardwareSettingsService.setDebounceStage(stage);
+      const res = await hardwareSettingsService.applyToHardware();
+      setDebounceToast({ text: res.message, isError: !res.success });
+    } catch (err: any) {
+      setDebounceToast({ text: err.message || 'Failed to apply debounce stage', isError: true });
+    } finally {
+      setIsApplyingDebounce(false);
+      setTimeout(() => setDebounceToast(null), 5000);
+    }
+  };
+
+  const chatteringKeys = Array.from(keyStates.values()).filter((k) => k.chatterCount > 0);
+
+  const computeDebounceAdvice = () => {
+    if (summary.testedKeysCount < 3) {
+      return {
+        stage: summary.currentDebounceStage,
+        title: 'Awaiting Testing Keystrokes',
+        desc: 'Press multiple keys on the matrix below to benchmark mechanical contact bounce.',
+        badge: 'bg-zinc-800 text-zinc-300 border border-zinc-700',
+        canOptimize: false,
+      };
+    }
+
+    if (summary.chatterEventsCount > 0) {
+      if (summary.fastestBounceMs !== null && summary.fastestBounceMs < 8) {
+        return {
+          stage: 5,
+          title: 'Stage 5 (15ms Anti-Chatter Max) Recommended',
+          desc: `Severe micro-bounce detected (${summary.fastestBounceMs}ms). Increasing debounce to Stage 5 will aggressively filter double-typing on worn or dusty leaves.`,
+          badge: 'bg-rose-950/80 border border-rose-800 text-rose-300',
+          canOptimize: summary.currentDebounceStage !== 5,
+        };
+      }
+      return {
+        stage: 4,
+        title: 'Stage 4 (10ms Safe Stability) Recommended',
+        desc: `Switch chatter recorded on ${summary.chatteringKeysCount} switch(es). Stage 4 eliminates unintended duplicate keypresses.`,
+        badge: 'bg-amber-950/80 border border-amber-800 text-amber-300',
+        canOptimize: summary.currentDebounceStage < 4,
+      };
+    }
+
+    if (summary.fastestBounceMs !== null && summary.fastestBounceMs >= 15) {
+      return {
+        stage: 1,
+        title: 'Stage 1 (2ms Ultra-Fast Latency) Recommended',
+        desc: 'All tested switches are pristine and clean with zero bounce. Safe to run lowest debounce latency for competitive esports responsiveness.',
+        badge: 'bg-cyan-950/80 border border-cyan-800 text-cyan-300',
+        canOptimize: summary.currentDebounceStage !== 1,
+      };
+    }
+
+    return {
+      stage: 3,
+      title: 'Stage 3 (8ms Factory Balanced) Recommended',
+      desc: 'All switches clean. Stage 3 provides the optimal balance between competitive latency and reliable typing.',
+      badge: 'bg-emerald-950/80 border border-emerald-800 text-emerald-300',
+      canOptimize: summary.currentDebounceStage !== 3,
+    };
+  };
+
+  const advice = computeDebounceAdvice();
 
   const selectedKeyData = selectedKeyIdx !== null ? keyStates.get(selectedKeyIdx) : null;
   const rows = [0, 1, 2, 3, 4, 5];
@@ -216,30 +289,104 @@ export const SwitchTesterWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* Threshold Slider & Debounce Advisory */}
-      <div className="bg-[#141414] border border-[#242424] rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold text-white flex items-center gap-2">
-            Chatter Detection Threshold:
-            <span className="font-mono text-cyan-300 font-bold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800 text-[11px]">
-              {threshold} ms
-            </span>
+      {/* Debounce Advisor & Chatter Diagnostics Intelligence Card */}
+      <div className="bg-[#141414] border border-[#242424] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-[#222222]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Smart Debounce Advisor</span>
+              </span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${advice.badge}`}>
+                {advice.title}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-300 max-w-2xl leading-relaxed">
+              {advice.desc}
+            </p>
           </div>
-          <p className="text-[11px] text-zinc-400">
-            Key releases re-pressed within &lt; {threshold}ms will be flagged as switch chatter.
-          </p>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {advice.canOptimize && (
+              <button
+                onClick={() => handleApplyDebounceStage(advice.stage)}
+                disabled={isApplyingDebounce}
+                className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-bold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5 fill-black" />
+                <span>{isApplyingDebounce ? 'Writing to EEPROM...' : `Apply Stage ${advice.stage} to Keyboard`}</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min="10"
-            max="60"
-            step="5"
-            value={threshold}
-            onChange={(e) => switchHealthService.setChatterThreshold(parseInt(e.target.value, 10))}
-            className="w-48 accent-cyan-400 cursor-pointer"
-          />
+        {debounceToast && (
+          <div className={`p-2.5 rounded-xl text-xs font-semibold text-center border animate-pulse ${
+            debounceToast.isError
+              ? 'bg-rose-950/70 border-rose-800 text-rose-300'
+              : 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+          }`}>
+            {debounceToast.text}
+          </div>
+        )}
+
+        {/* Chatter Key Quick Inspector & Threshold Controls */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+          <div className="flex-1">
+            {chatteringKeys.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-mono text-rose-400 font-bold flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{chatteringKeys.length} Switch(es) with Double-Click Chatter (Click to inspect):</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {chatteringKeys.map((k) => (
+                    <button
+                      key={k.matrixIdx}
+                      onClick={() => setSelectedKeyIdx(k.matrixIdx)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                        selectedKeyIdx === k.matrixIdx
+                          ? 'bg-rose-600 border-rose-400 text-white shadow-md'
+                          : 'bg-rose-950/50 hover:bg-rose-900/60 border-rose-800 text-rose-200'
+                      }`}
+                    >
+                      <span>Key {k.label}</span>
+                      <span className="text-[10px] text-rose-400">#{k.matrixIdx}</span>
+                      <span className="text-[10px] bg-black/40 px-1 rounded">{k.chatterCount}x</span>
+                      <span className="text-[10px] text-rose-300">{k.minBounceTimeMs}ms</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  {summary.testedKeysCount > 0
+                    ? `Pristine Contact Health: Zero switch chatter across ${summary.testedKeysCount} tested keys.`
+                    : 'Awaiting typing: Press keys to test for mechanical switch chatter.'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 bg-[#0d0d0d] px-3 py-2 rounded-xl border border-[#222222]">
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase text-zinc-500">Threshold</div>
+              <div className="text-xs font-bold font-mono text-cyan-400">&lt; {threshold}ms</div>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="60"
+              step="5"
+              value={threshold}
+              onChange={(e) => switchHealthService.setChatterThreshold(parseInt(e.target.value, 10))}
+              className="w-32 accent-cyan-400 cursor-pointer"
+              title="Keys re-pressed within this threshold are flagged as chatter"
+            />
+          </div>
         </div>
       </div>
 
