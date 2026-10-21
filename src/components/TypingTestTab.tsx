@@ -17,9 +17,8 @@ import {
   Hash,
 } from 'lucide-react';
 import {
-  WORDS_INDONESIAN,
-  WORDS_ENGLISH,
   QUOTES_DATABASE,
+  getCoherentWords,
 } from '../data/typingWords';
 import { soundService, SOUND_PROFILES, type SoundState } from '../services/soundService';
 
@@ -90,34 +89,41 @@ export const TypingTestTab: React.FC = () => {
   const incorrectKeystrokesRef = useRef<number>(0);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // DOM references
+  // DOM & Timing references
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const wordsContainerRef = useRef<HTMLDivElement>(null);
+  const activeWordRef = useRef<HTMLDivElement>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  // Auto-scroll words container so active line is always comfortably visible without vertical clipping
+  useEffect(() => {
+    if (!wordsContainerRef.current || !activeWordRef.current) return;
+    const container = wordsContainerRef.current;
+    const activeEl = activeWordRef.current;
+
+    const wordTop = activeEl.offsetTop;
+    const wordHeight = activeEl.offsetHeight || 44;
+
+    // When the active word is on line 2 or deeper, scroll smoothly so active line is in the middle
+    if (wordTop > wordHeight * 0.8) {
+      container.scrollTo({
+        top: wordTop - wordHeight - 6,
+        behavior: 'smooth',
+      });
+    } else {
+      container.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    }
+  }, [activeWordIdx]);
 
   // Subscribe to sound service
   useEffect(() => {
     return soundService.subscribe((s) => setSoundState(s));
   }, []);
 
-  // Helper to punctuate words
-  const formatWord = useCallback(
-    (raw: string, addPunctuation: boolean, addNumbers: boolean): string => {
-      let w = raw.toLowerCase();
-      if (addNumbers && Math.random() < 0.15) {
-        return Math.floor(Math.random() * 999).toString();
-      }
-      if (addPunctuation) {
-        const rand = Math.random();
-        if (rand < 0.1) return w.charAt(0).toUpperCase() + w.slice(1);
-        if (rand < 0.18) return w + ',';
-        if (rand < 0.25) return w + '.';
-        if (rand < 0.28) return w + '!';
-        if (rand < 0.3) return `"${w}"`;
-      }
-      return w;
-    },
-    []
-  );
+
 
   // Generate words for test
   const generateTestWords = useCallback(
@@ -128,24 +134,19 @@ export const TypingTestTab: React.FC = () => {
       }
 
       if (mode === 'quote') {
-        const quotePool = QUOTES_DATABASE;
+        const matchingQuotes = QUOTES_DATABASE.filter((q) => q.language === language);
+        const quotePool = matchingQuotes.length > 0 ? matchingQuotes : QUOTES_DATABASE;
         const selectedQuote = quotePool[Math.floor(Math.random() * quotePool.length)];
-        setWords(selectedQuote.text.split(' '));
+        setWords(selectedQuote.text.trim().split(/\s+/));
         return;
       }
 
-      const pool = language === 'indonesian' ? WORDS_INDONESIAN : WORDS_ENGLISH;
-      const needed = mode === 'words' ? wordCount : 80;
-      const resultWords: string[] = [];
-
-      for (let i = 0; i < needed; i++) {
-        const randomWord = pool[Math.floor(Math.random() * pool.length)];
-        resultWords.push(formatWord(randomWord, hasPunctuation, hasNumbers));
-      }
-
-      setWords(resultWords);
+      // Generate natural, grammatically coherent sentences for both languages
+      const needed = mode === 'words' ? wordCount : Math.max(120, timeLimit * 3);
+      const coherentWords = getCoherentWords(language, needed, hasPunctuation, hasNumbers);
+      setWords(coherentWords);
     },
-    [mode, wordCount, language, hasPunctuation, hasNumbers, formatWord]
+    [mode, wordCount, timeLimit, language, hasPunctuation, hasNumbers]
   );
 
   // Initialize or reset test
@@ -164,6 +165,7 @@ export const TypingTestTab: React.FC = () => {
       setRemainingSeconds(timeLimit);
       setWpmHistory([]);
       setResult(null);
+      startTimeRef.current = null;
 
       charStatsRef.current.clear();
       totalKeystrokesRef.current = 0;
@@ -171,6 +173,10 @@ export const TypingTestTab: React.FC = () => {
       incorrectKeystrokesRef.current = 0;
 
       generateTestWords(practiceWords);
+
+      if (wordsContainerRef.current) {
+        wordsContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+      }
 
       setTimeout(() => {
         hiddenInputRef.current?.focus();
@@ -184,10 +190,15 @@ export const TypingTestTab: React.FC = () => {
     startNewTest();
   }, [mode, timeLimit, wordCount, language, hasPunctuation, hasNumbers, startNewTest]);
 
-  // Compute live metrics
+  // Compute live metrics on every keystroke and timer tick
   const liveMetrics = useMemo(() => {
-    const elapsed = Math.max(1, elapsedSeconds);
-    const minutes = elapsed / 60;
+    if (testState !== 'running' || !startTimeRef.current) {
+      return { wpm: 0, rawWpm: 0, acc: 100 };
+    }
+
+    const now = Date.now();
+    const elapsedSec = Math.max(0.8, (now - startTimeRef.current) / 1000);
+    const minutes = elapsedSec / 60;
     const totalCorrectChars = correctKeystrokesRef.current;
     const totalChars = totalKeystrokesRef.current;
 
@@ -196,7 +207,7 @@ export const TypingTestTab: React.FC = () => {
     const acc = totalChars > 0 ? Math.round((totalCorrectChars / totalChars) * 100) : 100;
 
     return { wpm, rawWpm, acc };
-  }, [elapsedSeconds]);
+  }, [testState, elapsedSeconds, activeWordIdx, currentInput]);
 
   // Finish test and compute analytics
   const finishTest = useCallback(() => {
@@ -207,7 +218,9 @@ export const TypingTestTab: React.FC = () => {
 
     setTestState('finished');
 
-    const duration = mode === 'time' ? timeLimit : Math.max(1, elapsedSeconds);
+    const duration = mode === 'time'
+      ? timeLimit
+      : Math.max(1, startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : elapsedSeconds);
     const minutes = duration / 60;
 
     let correctChars = 0;
@@ -289,39 +302,52 @@ export const TypingTestTab: React.FC = () => {
     });
   }, [mode, timeLimit, elapsedSeconds, words, activeWordIdx, history, currentInput, wpmHistory, language, wordCount]);
 
-  // Tick timer
+  // Stable ref for finishTest so timer interval is never torn down on keystroke
+  const finishTestRef = useRef(finishTest);
+  finishTestRef.current = finishTest;
+
+  // Tick timer & countdown (completely decoupled from keystrokes)
   useEffect(() => {
     if (testState === 'running') {
-      timerIntervalRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const next = prev + 1;
-
-          // Track second-by-second WPM for consistency graph
-          const mins = next / 60;
-          const currentWpm = Math.round(correctKeystrokesRef.current / 5 / mins) || 0;
-          setWpmHistory((hist) => [...hist, currentWpm]);
-
-          if (mode === 'time') {
-            setRemainingSeconds((rem) => {
-              if (rem <= 1) {
-                finishTest();
-                return 0;
-              }
-              return rem - 1;
-            });
-          }
-
-          return next;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
       }
-    };
-  }, [testState, mode, finishTest]);
+
+      // 250ms cadence for responsive, stutter-free countdown and metrics
+      timerIntervalRef.current = setInterval(() => {
+        if (!startTimeRef.current) return;
+        const now = Date.now();
+        const totalElapsedSec = (now - startTimeRef.current) / 1000;
+        const wholeSec = Math.floor(totalElapsedSec);
+
+        setElapsedSeconds(wholeSec);
+
+        if (mode === 'time') {
+          const rem = Math.max(0, timeLimit - wholeSec);
+          setRemainingSeconds(rem);
+          if (rem <= 0) {
+            finishTestRef.current();
+          }
+        }
+      }, 250);
+
+      // Track second-by-second WPM for consistency graph
+      const wpmTracker = setInterval(() => {
+        if (!startTimeRef.current) return;
+        const mins = Math.max(0.05, (Date.now() - startTimeRef.current) / 60000);
+        const currentWpm = Math.round(correctKeystrokesRef.current / 5 / mins) || 0;
+        setWpmHistory((hist) => [...hist, currentWpm]);
+      }, 1000);
+
+      return () => {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        clearInterval(wpmTracker);
+      };
+    }
+  }, [testState, mode, timeLimit]);
 
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -337,6 +363,7 @@ export const TypingTestTab: React.FC = () => {
     if (testState === 'idle') {
       if (e.key.length === 1 || e.key === 'Backspace' || e.key === ' ') {
         soundService.init();
+        startTimeRef.current = Date.now();
         setTestState('running');
       }
     }
@@ -360,6 +387,12 @@ export const TypingTestTab: React.FC = () => {
 
       setHistory((prev) => [...prev, currentInput]);
       setCurrentInput('');
+
+      // Dynamically refill coherent sentences in time mode so fast typists never run out
+      if (mode === 'time' && activeWordIdx >= words.length - 12) {
+        const moreWords = getCoherentWords(language, 60, hasPunctuation, hasNumbers);
+        setWords((prev) => [...prev, ...moreWords]);
+      }
 
       // Check test completion for words mode or end of word list
       if (activeWordIdx + 1 >= words.length) {
@@ -725,7 +758,7 @@ export const TypingTestTab: React.FC = () => {
           {/* Words Matrix Container */}
           <div
             ref={wordsContainerRef}
-            className="my-6 max-h-[170px] overflow-hidden leading-relaxed font-mono text-xl sm:text-2xl select-none flex flex-wrap gap-x-3.5 gap-y-2.5 relative"
+            className="my-6 h-[142px] sm:h-[152px] overflow-hidden leading-relaxed font-mono text-xl sm:text-2xl select-none flex flex-wrap content-start gap-x-3.5 gap-y-2.5 relative scroll-smooth"
           >
             {words.map((word, wIdx) => {
               const isPast = wIdx < activeWordIdx;
@@ -735,6 +768,7 @@ export const TypingTestTab: React.FC = () => {
               return (
                 <div
                   key={`${word}-${wIdx}`}
+                  ref={isCurrent ? activeWordRef : undefined}
                   className={`relative flex items-center transition-opacity duration-150 ${
                     wIdx > activeWordIdx + 20 ? 'opacity-30' : 'opacity-100'
                   }`}

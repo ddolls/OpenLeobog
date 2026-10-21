@@ -32,6 +32,8 @@ export const SwitchTesterWidget: React.FC = () => {
 
   // Subscribe to switch health updates and inputs
   useEffect(() => {
+    inputManager.setTestMode(true);
+
     const unsubHealth = switchHealthService.subscribe(() => {
       setTick((t) => t + 1);
     });
@@ -49,6 +51,7 @@ export const SwitchTesterWidget: React.FC = () => {
     });
 
     return () => {
+      inputManager.setTestMode(false);
       unsubHealth();
       unsubInput();
       unsubKnob();
