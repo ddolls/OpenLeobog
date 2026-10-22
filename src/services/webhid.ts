@@ -32,6 +32,66 @@ class WebHIDController {
   private logs: string[] = [];
   private connectedBaseline: Uint8Array | null = null; // First read = baseline (no false positives)
 
+  constructor() {
+    this.initNavigatorListeners();
+  }
+
+  private initNavigatorListeners() {
+    if (typeof navigator !== 'undefined' && (navigator as any).hid) {
+      (navigator as any).hid.addEventListener('disconnect', (event: any) => {
+        const disconnectedDev = event.device;
+        if (!this.device) return;
+
+        const isCurrentDevice =
+          disconnectedDev === this.device ||
+          (disconnectedDev?.vendorId === this.device.vendorId &&
+            disconnectedDev?.productId === this.device.productId);
+
+        if (isCurrentDevice) {
+          const devName = this.device.productName || 'Leobog Hi75c Pro';
+          this.log(`Device disconnected (${devName}).`);
+          this.device = null;
+          this.connectedBaseline = null;
+          this.notify({
+            isConnected: false,
+            deviceName: '',
+            matrixData: null,
+            records: new Map(),
+            fnRecords: new Map(),
+            modifiedCount: 0,
+          });
+        }
+      });
+    }
+  }
+
+  public async disconnect(): Promise<void> {
+    if (this.device) {
+      try {
+        if (this.device.opened) {
+          await this.device.close();
+        }
+      } catch (err: any) {
+        this.log(`Error closing device: ${err.message}`);
+      }
+      this.device = null;
+    }
+    this.connectedBaseline = null;
+    this.notify({
+      isConnected: false,
+      deviceName: '',
+      matrixData: null,
+      records: new Map(),
+      fnRecords: new Map(),
+      modifiedCount: 0,
+    });
+    this.log('WebHID device disconnected.');
+  }
+
+  public getDevice(): any {
+    return this.device;
+  }
+
   public log(msg: string) {
     const timestamp = new Date().toLocaleTimeString();
     const logLine = `[${timestamp}] ${msg}`;
