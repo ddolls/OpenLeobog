@@ -82,25 +82,29 @@ export const PollingRateTab: React.FC = () => {
     };
 
     const tiers = [
-      { ms: 1, label: '1 ms (1000 Hz)', color: 'rgba(34, 211, 238, 0.45)' },
-      { ms: 2, label: '2 ms (500 Hz)', color: 'rgba(52, 211, 153, 0.45)' },
-      { ms: 4, label: '4 ms (250 Hz)', color: 'rgba(251, 191, 36, 0.45)' },
-      { ms: 8, label: '8 ms (125 Hz)', color: 'rgba(244, 63, 94, 0.45)' },
+      { ms: 1, label: '1 ms (1000 Hz)' },
+      { ms: 2, label: '2 ms (500 Hz)' },
+      { ms: 4, label: '4 ms (250 Hz)' },
+      { ms: 8, label: '8 ms (125 Hz)' },
     ];
 
     tiers.forEach((t) => {
       const y = getY(t.ms);
+
+      // Bright white dashed guideline for clear contrast against dark background
       ctx.beginPath();
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = t.color;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = 1.2;
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
       ctx.stroke();
 
+      // Crisp bold white label text
       ctx.setLineDash([]);
-      ctx.fillStyle = t.color;
-      ctx.font = '11px monospace';
-      ctx.fillText(t.label, 10, y - 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(t.label, 10, y - 5);
     });
 
     // If no samples yet, exit cleanly without drawing any placeholder text
