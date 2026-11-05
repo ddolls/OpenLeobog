@@ -13,7 +13,7 @@ import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ModeSelectionModal } from './components/ModeSelectionModal';
 import { SocialModal } from './components/SocialModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
-import { parseKeyRecordUsage, type KeyRecord } from './types/hid';
+import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
 import { TypingTestTab } from './components/TypingTestTab';
 import { batteryService } from './services/batteryService';
@@ -25,10 +25,10 @@ function getInitialRecords(): Map<number, KeyRecord> {
   for (let idx = 0; idx < 128; idx++) {
     const offset = idx * 4;
     const bytes: [number, number, number, number] = [
-      PRISTINE_STAGE5_MATRIX[0][offset],
-      PRISTINE_STAGE5_MATRIX[0][offset + 1],
-      PRISTINE_STAGE5_MATRIX[0][offset + 2],
-      PRISTINE_STAGE5_MATRIX[0][offset + 3],
+      PRISTINE_STAGE5_MATRIX[0][offset] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 1] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 2] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 3] ?? 0,
     ];
     const parsedUsage = parseKeyRecordUsage(bytes);
     initialRecords.set(idx, {
@@ -90,18 +90,26 @@ export function App() {
   const handleApplyRemap = async (matrixIdx: number, newUsage: number) => {
     const success = await webhid.writeKeyRemap(matrixIdx, newUsage);
     if (success) {
+      const newBytes = encodeKeyRecordBytes(newUsage);
       setHidState((prev) => {
         const newRecords = new Map(prev.records);
         const existing = newRecords.get(matrixIdx);
         if (existing) {
           newRecords.set(matrixIdx, {
             ...existing,
+            bytes: newBytes,
             hidUsage: newUsage,
           });
         }
         let modCount = 0;
         newRecords.forEach((rec) => {
-          if (rec.hidUsage !== rec.originalUsage) modCount++;
+          const off = rec.matrixIdx * 4;
+          const isMod =
+            rec.bytes[0] !== (PRISTINE_STAGE5_MATRIX[0][off] ?? 0) ||
+            rec.bytes[1] !== (PRISTINE_STAGE5_MATRIX[0][off + 1] ?? 0) ||
+            rec.bytes[2] !== (PRISTINE_STAGE5_MATRIX[0][off + 2] ?? 0) ||
+            rec.bytes[3] !== (PRISTINE_STAGE5_MATRIX[0][off + 3] ?? 0);
+          if (isMod) modCount++;
         });
         return {
           ...prev,
@@ -122,12 +130,18 @@ export function App() {
           newRecords.set(matrixIdx, {
             ...existing,
             bytes: rawBytes,
-            hidUsage: rawBytes[3] || rawBytes[1],
+            hidUsage: parseKeyRecordUsage(rawBytes),
           });
         }
         let modCount = 0;
         newRecords.forEach((rec) => {
-          if (rec.hidUsage !== rec.originalUsage) modCount++;
+          const off = rec.matrixIdx * 4;
+          const isMod =
+            rec.bytes[0] !== (PRISTINE_STAGE5_MATRIX[0][off] ?? 0) ||
+            rec.bytes[1] !== (PRISTINE_STAGE5_MATRIX[0][off + 1] ?? 0) ||
+            rec.bytes[2] !== (PRISTINE_STAGE5_MATRIX[0][off + 2] ?? 0) ||
+            rec.bytes[3] !== (PRISTINE_STAGE5_MATRIX[0][off + 3] ?? 0);
+          if (isMod) modCount++;
         });
         return {
           ...prev,
@@ -154,18 +168,34 @@ export function App() {
   };
 
   const handleResetKey = async (matrixIdx: number) => {
-    const rec = hidState.records.get(matrixIdx);
-    if (rec) {
-      await handleApplyRemap(matrixIdx, rec.originalUsage);
-    }
+    const offset = matrixIdx * 4;
+    const factoryBytes: [number, number, number, number] = [
+      PRISTINE_STAGE5_MATRIX[0][offset] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 1] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 2] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 3] ?? 0,
+    ];
+    await handleApplyComboRemap(matrixIdx, factoryBytes);
+    webhid.log(`Reset key Matrix #${matrixIdx} to factory stock.`);
   };
 
   const handleResetAll = async () => {
     if (confirm('Reset all keys to factory stock mapping?')) {
-      for (const [idx, rec] of hidState.records.entries()) {
-        if (rec.hidUsage !== rec.originalUsage) {
-          await handleApplyRemap(idx, rec.originalUsage);
-        }
+      const success = await webhid.resetBaseTableToFactory();
+      if (success) {
+        setHidState((prev) => {
+          const newRecords = getInitialRecords();
+          return {
+            ...prev,
+            matrixData: new Uint8Array([
+              ...PRISTINE_STAGE5_MATRIX[0],
+              ...PRISTINE_STAGE5_MATRIX[1],
+            ]),
+            records: newRecords,
+            modifiedCount: 0,
+          };
+        });
+        webhid.log('All keys successfully reset to factory stock mapping.');
       }
     }
   };

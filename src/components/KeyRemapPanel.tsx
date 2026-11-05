@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
+import { PRISTINE_STAGE5_MATRIX } from '../services/webhid';
 import {
   LEOBOG_HI75C_LAYOUT,
   HID_USAGES,
@@ -94,9 +95,19 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
   const record = records.get(selectedMatrixIdx);
   const currentBytes = record ? record.bytes : ([0, 0, 0, 0] as [number, number, number, number]);
   const currentLabel = formatComboLabel(currentBytes);
-  const currentUsage = record ? record.hidUsage : 0;
-  const originalUsage = record ? record.originalUsage : 0;
-  const isModified = record ? record.bytes.join(',') !== [0, 0, 0, originalUsage].join(',') && currentUsage !== originalUsage : false;
+  const offset = selectedMatrixIdx * 4;
+  const factoryBytes: [number, number, number, number] = [
+    PRISTINE_STAGE5_MATRIX[0][offset] ?? 0,
+    PRISTINE_STAGE5_MATRIX[0][offset + 1] ?? 0,
+    PRISTINE_STAGE5_MATRIX[0][offset + 2] ?? 0,
+    PRISTINE_STAGE5_MATRIX[0][offset + 3] ?? 0,
+  ];
+  const isModified = record
+    ? record.bytes[0] !== factoryBytes[0] ||
+      record.bytes[1] !== factoryBytes[1] ||
+      record.bytes[2] !== factoryBytes[2] ||
+      record.bytes[3] !== factoryBytes[3]
+    : false;
 
   const categories = ['Standard', 'Modifiers', 'Function', 'Navigation', 'Media', 'Special'];
 
