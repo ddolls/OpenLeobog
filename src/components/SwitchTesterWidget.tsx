@@ -32,6 +32,9 @@ export const SwitchTesterWidget: React.FC = () => {
   const [selectedKeyIdx, setSelectedKeyIdx] = useState<number | null>(null);
   const [isApplyingDebounce, setIsApplyingDebounce] = useState<boolean>(false);
   const [debounceToast, setDebounceToast] = useState<{ text: string; isError: boolean } | null>(null);
+  const [soundState, setSoundState] = useState<SoundState>(soundService.getState());
+  const [isSoundMenuOpen, setIsSoundMenuOpen] = useState<boolean>(false);
+  const soundMenuRef = useRef<HTMLDivElement>(null);
 
   // Only enable switch health recording and switch sound when on the matrix tab
   useEffect(() => {
@@ -66,10 +69,6 @@ export const SwitchTesterWidget: React.FC = () => {
       unsubSound();
     };
   }, []);
-
-  const [soundState, setSoundState] = useState<SoundState>(soundService.getState());
-  const [isSoundMenuOpen, setIsSoundMenuOpen] = useState<boolean>(false);
-  const soundMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isSoundMenuOpen) return;

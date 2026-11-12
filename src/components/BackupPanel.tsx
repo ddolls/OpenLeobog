@@ -71,6 +71,10 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
 
   // 4. Restore Full Raw Dump (Advanced / Dangerous)
   const handleRestoreFullRaw = async () => {
+    if (!isDevMode) {
+      alert('Raw restore is disabled in Safe Mode.');
+      return;
+    }
     if (!selectedFile) return;
     if (!confirm('WARNING: Restoring full 1024-byte raw configuration may overwrite OS mode or secondary tables. Proceed?')) return;
 

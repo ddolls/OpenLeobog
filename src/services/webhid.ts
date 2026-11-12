@@ -18,6 +18,48 @@ export const PRISTINE_STAGE5_MATRIX: [number[], number[]] = [
   [0, 0, 0, 41, 0, 0, 0, 53, 0, 0, 0, 43, 0, 0, 0, 57, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 20, 0, 0, 0, 4, 0, 0, 0, 29, 0, 4, 0, 0, 2, 0, 0, 112, 0, 0, 0, 31, 0, 0, 0, 26, 0, 0, 0, 22, 0, 0, 0, 27, 0, 8, 0, 0, 2, 0, 0, 111, 0, 0, 0, 32, 0, 0, 0, 8, 0, 0, 0, 7, 0, 0, 0, 6, 0, 0, 0, 0, 0, 8, 0, 43, 0, 0, 0, 33, 0, 0, 0, 21, 0, 0, 0, 9, 0, 0, 0, 25, 0, 0, 0, 0, 0, 8, 0, 11, 0, 0, 0, 34, 0, 0, 0, 23, 0, 0, 0, 10, 0, 0, 0, 5, 0, 0, 0, 44, 8, 3, 2, 0, 0, 0, 0, 35, 0, 0, 0, 28, 0, 0, 0, 11, 0, 0, 0, 17, 0, 0, 0, 0, 8, 3, 1, 0, 0, 0, 0, 36, 0, 0, 0, 24, 0, 0, 0, 13, 0, 0, 0, 16, 0, 0, 0, 0, 2, 0, 0, 182, 0, 0, 0, 37, 0, 0, 0, 12, 0, 0, 0, 14, 0, 0, 0, 54, 13, 0, 0, 0, 2, 0, 0, 205, 0, 0, 0, 38, 0, 0, 0, 18, 0, 0, 0, 15, 0, 0, 0, 55, 0, 16, 0, 0, 2, 0, 0, 181, 0, 0, 0, 39, 0, 0, 0, 19, 0, 0, 0, 51, 0, 0, 0, 56, 0, 0, 0, 0, 2, 0, 0, 226, 0, 0, 0, 45, 0, 0, 0, 47, 0, 0, 0, 52, 0, 32, 0, 0, 0, 0, 0, 0, 2, 0, 0, 234, 0, 0, 0, 46, 0, 0, 0, 48, 0, 0, 0, 50, 0, 0, 0, 100, 0, 0, 0, 80, 2, 0, 0, 233, 0, 0, 0, 42, 0, 0, 0, 49, 0, 0, 0, 40, 0, 0, 0, 82, 0, 0, 0, 81, 7, 0, 0, 29, 0, 0, 0, 76, 0, 0, 0, 75, 0, 0, 0, 78, 0, 0, 0, 77, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 90, 165, 0, 0]
 ];
 
+export function getDefaultOfflineRecords(): Map<number, KeyRecord> {
+  const records = new Map<number, KeyRecord>();
+  for (let idx = 0; idx < 128; idx++) {
+    const offset = idx * 4;
+    const bytes: [number, number, number, number] = [
+      PRISTINE_STAGE5_MATRIX[0][offset] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 1] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 2] ?? 0,
+      PRISTINE_STAGE5_MATRIX[0][offset + 3] ?? 0,
+    ];
+    const parsedUsage = parseKeyRecordUsage(bytes);
+    records.set(idx, {
+      matrixIdx: idx,
+      hidUsage: parsedUsage,
+      originalUsage: parsedUsage,
+      bytes,
+    });
+  }
+  return records;
+}
+
+export function getDefaultOfflineFnRecords(): Map<number, KeyRecord> {
+  const records = new Map<number, KeyRecord>();
+  for (let idx = 0; idx < 128; idx++) {
+    const offset = idx * 4;
+    const bytes: [number, number, number, number] = [
+      PRISTINE_STAGE5_MATRIX[1][offset] ?? 0,
+      PRISTINE_STAGE5_MATRIX[1][offset + 1] ?? 0,
+      PRISTINE_STAGE5_MATRIX[1][offset + 2] ?? 0,
+      PRISTINE_STAGE5_MATRIX[1][offset + 3] ?? 0,
+    ];
+    const parsedUsage = parseKeyRecordUsage(bytes);
+    records.set(idx, {
+      matrixIdx: idx,
+      hidUsage: parsedUsage,
+      originalUsage: parsedUsage,
+      bytes,
+    });
+  }
+  return records;
+}
+
 export interface DiffEntry {
   offsetHex: string;
   offsetDec: number;
@@ -56,8 +98,8 @@ class WebHIDController {
             isConnected: false,
             deviceName: '',
             matrixData: null,
-            records: new Map(),
-            fnRecords: new Map(),
+            records: getDefaultOfflineRecords(),
+            fnRecords: getDefaultOfflineFnRecords(),
             modifiedCount: 0,
           });
         }
@@ -81,8 +123,8 @@ class WebHIDController {
       isConnected: false,
       deviceName: '',
       matrixData: null,
-      records: new Map(),
-      fnRecords: new Map(),
+      records: getDefaultOfflineRecords(),
+      fnRecords: getDefaultOfflineFnRecords(),
       modifiedCount: 0,
     });
     this.log('WebHID device disconnected.');
@@ -394,7 +436,7 @@ class WebHIDController {
       try {
         this.log('Reading FN 512-byte shortcut table (Packet 1)...');
         fnTable = await this.readFnTable();
-      } catch (err) {
+      } catch {
         this.log('Device returned no secondary packet, using stock FN template.');
         fnTable = new Uint8Array(PRISTINE_STAGE5_MATRIX[1]);
       }

@@ -12,6 +12,7 @@ import { RgbControlPanel } from './components/RgbControlPanel';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ModeSelectionModal } from './components/ModeSelectionModal';
 import { SocialModal } from './components/SocialModal';
+import { VersionModal } from './components/VersionModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
 import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
@@ -45,6 +46,7 @@ export function App() {
   const [userMode, setUserMode] = useState<'none' | 'guest' | 'dev'>('none');
   const [isModeModalOpen, setIsModeModalOpen] = useState<boolean>(true);
   const [isSocialModalOpen, setIsSocialModalOpen] = useState<boolean>(false);
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [selectedMatrixIdx, setSelectedMatrixIdx] = useState<number | null>(null);
   
@@ -233,6 +235,7 @@ export function App() {
         onConnect={handleConnect}
         userMode={userMode === 'dev' ? 'dev' : 'guest'}
         onOpenModeModal={() => setIsModeModalOpen(true)}
+        onOpenVersionModal={() => setIsVersionModalOpen(true)}
       />
 
       {/* Main Right Content Panel */}
@@ -376,6 +379,12 @@ export function App() {
       <SocialModal
         isOpen={isSocialModalOpen}
         onClose={() => setIsSocialModalOpen(false)}
+      />
+
+      {/* Version & Changelog Popup Modal */}
+      <VersionModal
+        isOpen={isVersionModalOpen}
+        onClose={() => setIsVersionModalOpen(false)}
       />
     </div>
   );

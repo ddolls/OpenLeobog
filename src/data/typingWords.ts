@@ -236,7 +236,7 @@ export function getCoherentWords(
       // Lowercase and strip punctuation marks, but keep words in coherent order
       sentence = sentence
         .toLowerCase()
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '');
+        .replace(/[.,/#!$%^&*;:{}=\-_`~()?"']/g, '');
     }
 
     const wordsInSentence = sentence.trim().split(/\s+/).filter(Boolean);

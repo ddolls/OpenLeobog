@@ -81,6 +81,7 @@ export const TypingTestTab: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(30);
   const [wpmHistory, setWpmHistory] = useState<number[]>([]);
   const [result, setResult] = useState<TestResult | null>(null);
+  const [keystrokes, setKeystrokes] = useState<{ total: number; correct: number }>({ total: 0, correct: 0 });
 
   // Keystroke Heatmap Tracking
   const charStatsRef = useRef<Map<string, { total: number; errors: number }>>(new Map());
@@ -165,6 +166,7 @@ export const TypingTestTab: React.FC = () => {
       setRemainingSeconds(timeLimit);
       setWpmHistory([]);
       setResult(null);
+      setKeystrokes({ total: 0, correct: 0 });
       startTimeRef.current = null;
 
       charStatsRef.current.clear();
@@ -192,22 +194,20 @@ export const TypingTestTab: React.FC = () => {
 
   // Compute live metrics on every keystroke and timer tick
   const liveMetrics = useMemo(() => {
-    if (testState !== 'running' || !startTimeRef.current) {
+    if (testState !== 'running' || elapsedSeconds === 0) {
       return { wpm: 0, rawWpm: 0, acc: 100 };
     }
 
-    const now = Date.now();
-    const elapsedSec = Math.max(0.8, (now - startTimeRef.current) / 1000);
-    const minutes = elapsedSec / 60;
-    const totalCorrectChars = correctKeystrokesRef.current;
-    const totalChars = totalKeystrokesRef.current;
+    const minutes = Math.max(0.015, elapsedSeconds / 60);
+    const totalCorrectChars = keystrokes.correct;
+    const totalChars = keystrokes.total;
 
     const wpm = Math.round(totalCorrectChars / 5 / minutes) || 0;
     const rawWpm = Math.round(totalChars / 5 / minutes) || 0;
     const acc = totalChars > 0 ? Math.round((totalCorrectChars / totalChars) * 100) : 100;
 
     return { wpm, rawWpm, acc };
-  }, [testState, elapsedSeconds, activeWordIdx, currentInput]);
+  }, [testState, elapsedSeconds, keystrokes]);
 
   // Finish test and compute analytics
   const finishTest = useCallback(() => {
@@ -304,7 +304,9 @@ export const TypingTestTab: React.FC = () => {
 
   // Stable ref for finishTest so timer interval is never torn down on keystroke
   const finishTestRef = useRef(finishTest);
-  finishTestRef.current = finishTest;
+  useEffect(() => {
+    finishTestRef.current = finishTest;
+  }, [finishTest]);
 
   // Tick timer & countdown (completely decoupled from keystrokes)
   useEffect(() => {
@@ -384,6 +386,10 @@ export const TypingTestTab: React.FC = () => {
       } else {
         incorrectKeystrokesRef.current++;
       }
+      setKeystrokes((prev) => ({
+        total: prev.total + 1,
+        correct: prev.correct + (isExactMatch ? 1 : 0),
+      }));
 
       setHistory((prev) => [...prev, currentInput]);
       setCurrentInput('');
@@ -439,6 +445,10 @@ export const TypingTestTab: React.FC = () => {
       } else {
         incorrectKeystrokesRef.current++;
       }
+      setKeystrokes((prev) => ({
+        total: prev.total + 1,
+        correct: prev.correct + (isCorrect ? 1 : 0),
+      }));
 
       // Record heatmap stats
       const keyStat = charStatsRef.current.get(char) || { total: 0, errors: 0 };

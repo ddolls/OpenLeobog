@@ -40,7 +40,9 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const stagedColorsRef = React.useRef<Record<number, string>>(rgbState.perKeyColors);
   const hasPaintedInStrokeRef = React.useRef<boolean>(false);
 
-  stagedColorsRef.current = stagedColors;
+  useEffect(() => {
+    stagedColorsRef.current = stagedColors;
+  }, [stagedColors]);
 
   // Sync stagedColors when external rgbState updates
   useEffect(() => {
