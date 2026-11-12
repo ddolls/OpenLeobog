@@ -51,9 +51,9 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
     setBackupStatus(`Saved KNOWN_GOOD_FACTORY_WINDOWS baseline (Checksum: ${checksum})`);
   };
 
-  // 2. Surgical Fn Recovery (Modifies ONLY Fn record 53 = [13, 0, 0, 0])
+  // 2. Surgical Fn Recovery (Restores Fn Matrix 59 = [13, 0, 0, 0] and RAlt Matrix 53 = [0, 64, 0, 0])
   const handleSurgicalFnRecovery = async () => {
-    if (confirm('Surgically restore ONLY Fn record (matrix 53 = 13 00 00 00)? This preserves current OS mode and configuration untouched.')) {
+    if (confirm('Surgically restore Fn record (Matrix 59) and RAlt (Matrix 53)? This preserves current OS mode and configuration untouched.')) {
       const success = await webhid.surgicalFnRecovery();
       if (success) {
         setBackupStatus('SURGICAL FN RECOVERY COMPLETE: Fn key restored while keeping OS mode untouched.');
@@ -247,7 +247,7 @@ export const BackupPanel: React.FC<BackupPanelProps> = ({ matrixData, onRefresh,
               </span>
             </div>
             <p className="text-zinc-400 leading-relaxed text-[11px]">
-              Restores <span className="font-mono text-white">ONLY</span> Fn record (Matrix 53 = 13 00 00 00). Preserves current OS mode and all other bytes untouched.
+              Restores <span className="font-mono text-white">ONLY</span> Fn record (Matrix 59) & RAlt (Matrix 53). Preserves current OS mode and all other bytes untouched.
             </p>
             <button
               disabled={!isDevMode}

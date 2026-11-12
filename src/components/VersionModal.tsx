@@ -30,7 +30,7 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
       },
       {
         type: 'fix',
-        text: 'Aligned Navigation Key Mappings: Corrected End (Matrix #86), Page Up (Matrix #87), and Page Down (Matrix #88) factory baseline positions.',
+        text: 'Physical Matrix Alignment: Fixed F12 (#78, was PrintScreen), Right Alt (#53), Fn (#59), Right Control (#71), and accurately aligned navigation cluster End (#87), Page Up (#88), and Page Down (#86).',
       },
       {
         type: 'fix',

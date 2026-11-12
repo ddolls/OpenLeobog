@@ -84,7 +84,7 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   KeyO: 56,
   KeyL: 57,
   Period: 58,
-  AltRight: 59, // Physical RAlt = Matrix 59
+  AltRight: 53, // Physical RAlt = Matrix 53
 
   F9: 60,
   Digit0: 61,
@@ -112,9 +112,9 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   ArrowDown: 83,
   PrintScreen: 84,
   Delete: 85,
-  End: 86,
-  PageUp: 87,
-  PageDown: 88,
+  End: 87,
+  PageUp: 88,
+  PageDown: 86,
   ArrowRight: 89,
 
   // Media / Rotary Knob (Matrix 84 - verified via official LEOBOG ONE KB.ini K82)

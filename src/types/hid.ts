@@ -82,13 +82,13 @@ export const DEFAULT_MATRIX_USAGES: Record<number, number> = {
   50: 0x0C, // I
   51: 0x0E, // K
   52: 0x36, // ,
-  53: 0xFF, // Fn
+  53: 0xE6, // RAlt
   54: 0x41, // F8
   55: 0x26, // 9
   56: 0x12, // O
   57: 0x0F, // L
   58: 0x37, // .
-  59: 0xE6, // RAlt (Matrix 59)
+  59: 0xFF, // Fn (Matrix 59)
   60: 0x42, // F9
   61: 0x27, // 0
   62: 0x13, // P
@@ -114,9 +114,9 @@ export const DEFAULT_MATRIX_USAGES: Record<number, number> = {
   83: 0x51, // Down Arrow
   84: 0xE2, // Rotary Volume Knob (Matrix 84 - verified via official LEOBOG ONE KB.ini)
   85: 0x4C, // Delete
-  86: 0x4D, // End (Matrix 86)
-  87: 0x4B, // PgUp (Matrix 87)
-  88: 0x4E, // PgDn (Matrix 88)
+  86: 0x4E, // PgDn (Matrix 86)
+  87: 0x4D, // End (Matrix 87)
+  88: 0x4B, // PgUp (Matrix 88)
   89: 0x4F, // Right Arrow (Matrix 89)
 };
 
@@ -307,7 +307,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 68, label: '[', row: 2, col: 11.5 },
   { matrixIdx: 74, label: ']', row: 2, col: 12.5 },
   { matrixIdx: 80, label: '\\', width: 1.5, row: 2, col: 13.5 },
-  { matrixIdx: 86, label: 'End', row: 2, col: 15, category: 'nav' },
+  { matrixIdx: 87, label: 'End', row: 2, col: 15, category: 'nav' },
 
   // Row 3: Caps, ASDFGHJKL, ;, ', Enter, PgUp
   { matrixIdx: 3, label: 'Caps', width: 1.75, row: 3, col: 0 },
@@ -323,7 +323,7 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 63, label: ';', row: 3, col: 10.75 },
   { matrixIdx: 69, label: "'", row: 3, col: 11.75 },
   { matrixIdx: 81, label: 'Enter', width: 2.25, row: 3, col: 12.75 },
-  { matrixIdx: 87, label: 'PgUp', row: 3, col: 15, category: 'nav' },
+  { matrixIdx: 88, label: 'PgUp', row: 3, col: 15, category: 'nav' },
 
   // Row 4: LShift, ZXCVBNM, ,, ., /, RShift, Up, PgDn
   { matrixIdx: 4, label: 'LShift', width: 2.25, row: 4, col: 0, category: 'modifier' },
@@ -339,15 +339,15 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 64, label: '/', row: 4, col: 11.25 },
   { matrixIdx: 70, label: 'RShift', width: 1.75, row: 4, col: 12.25, category: 'modifier' },
   { matrixIdx: 82, label: '▲', row: 4, col: 14, category: 'nav' },
-  { matrixIdx: 88, label: 'PgDn', row: 4, col: 15, category: 'nav' },
+  { matrixIdx: 86, label: 'PgDn', row: 4, col: 15, category: 'nav' },
 
   // Row 5: LCtrl, Win, LAlt, Space, RAlt, Fn, RCtrl, Left, Down, Right
   { matrixIdx: 5, label: 'LCtrl', width: 1.25, row: 5, col: 0, category: 'modifier' },
   { matrixIdx: 11, label: 'Win', width: 1.25, row: 5, col: 1.25, category: 'modifier' },
   { matrixIdx: 17, label: 'LAlt', width: 1.25, row: 5, col: 2.5, category: 'modifier' },
   { matrixIdx: 35, label: 'Space', width: 6.25, row: 5, col: 3.75 },
-  { matrixIdx: 59, label: 'RAlt', width: 1, row: 5, col: 10, category: 'modifier' },
-  { matrixIdx: 53, label: 'Fn', width: 1, row: 5, col: 11, category: 'fn' },
+  { matrixIdx: 53, label: 'RAlt', width: 1, row: 5, col: 10, category: 'modifier' },
+  { matrixIdx: 59, label: 'Fn', width: 1, row: 5, col: 11, category: 'fn' },
   { matrixIdx: 71, label: 'RCtrl', width: 1, row: 5, col: 12, category: 'modifier' },
   { matrixIdx: 77, label: '◄', row: 5, col: 13, category: 'nav' },
   { matrixIdx: 83, label: '▼', row: 5, col: 14, category: 'nav' },
