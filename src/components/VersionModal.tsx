@@ -30,6 +30,10 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
       },
       {
         type: 'fix',
+        text: 'Aligned Navigation Key Mappings: Corrected End (Matrix #86), Page Up (Matrix #87), and Page Down (Matrix #88) factory baseline positions.',
+      },
+      {
+        type: 'fix',
         text: 'Resilient WebHID Disconnect: Populated offline fallback matrix so key map tables never collapse into empty states when device disconnects.',
       },
       {
