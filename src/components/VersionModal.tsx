@@ -19,9 +19,32 @@ interface ChangelogEntry {
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: 'v1.3.1',
+    version: 'v1.3.2',
     releaseDate: 'November 2026',
     isLatest: true,
+    title: 'LEOBOG ONE Reverse-Engineered Hardware Ground Truth Alignment',
+    items: [
+      {
+        type: 'fix',
+        text: 'Official KB.ini Hardware Matrix: Reverse-engineered official LEOBOG ONE desktop driver to restore true hardware indices for all keys.',
+      },
+      {
+        type: 'fix',
+        text: 'Restored Right Control (#65): Fixed physical RCtrl index to 65 (was disconnected at empty index #71), completely fixing dead Right Control after factory reset.',
+      },
+      {
+        type: 'fix',
+        text: 'Navigation Cluster Calibration: Aligned End (#86), Page Up (#87), and Page Down (#88) with exact hardware matrix, eliminating key rotation bug on remap reset.',
+      },
+      {
+        type: 'fix',
+        text: 'Windows AltGr Synthetic Ghost Fix: Suppressed Windows synthetic ControlLeft event during Right Alt / AltGr key presses, preventing Left Control from lighting up with Right Alt.',
+      },
+    ],
+  },
+  {
+    version: 'v1.3.1',
+    releaseDate: 'November 2026',
     title: 'Key Remap Reset Fix & Hardware Safety Hardening',
     items: [
       {

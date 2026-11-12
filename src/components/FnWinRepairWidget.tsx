@@ -23,13 +23,13 @@ export const FnWinRepairWidget: React.FC<FnWinRepairWidgetProps> = ({ onRefresh,
     }
   };
 
-  // 2. Restore Fn Key (Matrix 53 -> 0xFF [13, 0, 0, 0])
+  // 2. Restore Fn Key (Matrix 59 -> 0xFF) & Right Alt (Matrix 53 -> 0xE6)
   const handleRestoreFnKey = async () => {
     if (!isDevMode) return;
-    setStatusMsg('Surgically restoring Fn key (Matrix 53 -> 13 00 00 00)...');
+    setStatusMsg('Surgically restoring Fn key (Matrix 59) and Right Alt (Matrix 53)...');
     const success = await webhid.surgicalFnRecovery();
     if (success) {
-      setStatusMsg('Fn key surgically restored (Matrix 53 -> [13, 0, 0, 0]).');
+      setStatusMsg('Fn key (Matrix 59) & Right Alt (Matrix 53) surgically restored.');
       if (onRefresh) onRefresh();
     } else {
       setStatusMsg('Failed to restore Fn key.');

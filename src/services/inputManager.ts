@@ -97,7 +97,7 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   BracketLeft: 68,
   Quote: 69,
   ShiftRight: 70,
-  ControlRight: 71,
+  ControlRight: 65,
 
   F11: 72,
   Equal: 73,
@@ -112,9 +112,9 @@ export const PHYSICAL_CODE_TO_MATRIX: Record<string, number> = {
   ArrowDown: 83,
   PrintScreen: 84,
   Delete: 85,
-  End: 87,
-  PageUp: 88,
-  PageDown: 86,
+  End: 86,
+  PageUp: 87,
+  PageDown: 88,
   ArrowRight: 89,
 
   // Media / Rotary Knob (Matrix 84 - verified via official LEOBOG ONE KB.ini K82)
@@ -192,6 +192,12 @@ class InputManager {
 
         const rawCode = e.code || '';
         const rawKey = e.key || '';
+
+        // Handle Windows AltGr (suppress synthetic ControlLeft generated before/with AltRight)
+        if (rawCode === 'ControlLeft' && e.getModifierState && e.getModifierState('AltGraph')) {
+          return;
+        }
+
         const isVolUp = rawCode === 'AudioVolumeUp' || rawCode === 'VolumeUp' || rawKey === 'AudioVolumeUp';
         const isVolDown = rawCode === 'AudioVolumeDown' || rawCode === 'VolumeDown' || rawKey === 'AudioVolumeDown';
         const isVolMute = rawCode === 'AudioVolumeMute' || rawCode === 'VolumeMute' || rawKey === 'AudioVolumeMute' || rawCode === 'MediaPlayPause' || rawKey === 'MediaPlayPause';
@@ -225,11 +231,24 @@ class InputManager {
         const target = e.target as HTMLElement;
         const isInputFocused = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
+        // Suppress synthetic ControlLeft keyup from Windows AltGr
+        if (e.code === 'ControlLeft' && e.getModifierState && e.getModifierState('AltGraph')) {
+          if (this.pressedCodes.has('ControlLeft')) {
+            this.handleKeyUp('ControlLeft');
+          }
+          return;
+        }
+
         if (!isInputFocused) {
           e.preventDefault();
         }
 
         this.handleKeyUp(e.code);
+
+        // When releasing AltRight, ensure no lingering synthetic ControlLeft remains
+        if (e.code === 'AltRight' && this.pressedCodes.has('ControlLeft') && !e.ctrlKey) {
+          this.handleKeyUp('ControlLeft');
+        }
       },
       { capture: true }
     );
@@ -289,6 +308,12 @@ class InputManager {
   }
 
   public handleKeyDown(code: string, key: string = '') {
+    // When AltRight fires, immediately evict any synthetic ControlLeft artifact
+    if (code === 'AltRight' && this.pressedCodes.has('ControlLeft')) {
+      this.pressedCodes.delete('ControlLeft');
+      this.pressedMatrixIndices.delete(5);
+    }
+
     pollingRateService.recordEvent('dom', code);
     if (this.pressedCodes.has(code)) return;
 
