@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity, Timer, Tag } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity, Timer, Tag, Layers } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -25,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'typing-test', label: 'Typing Test', icon: Timer, mobileLabel: 'Typing' },
     { id: 'rgb', label: 'RGB Lighting', icon: Palette, mobileLabel: 'RGB' },
     { id: 'settings', label: 'Hardware Settings', icon: Sliders, mobileLabel: 'Settings' },
+    { id: 'profiles', label: 'Profiles & Layouts', icon: Layers, mobileLabel: 'Profiles' },
     { id: 'switch-tester', label: 'Switch & PRate Test', icon: Activity, mobileLabel: 'Tester' },
     ...(userMode === 'dev'
       ? [{ id: 'backup', label: 'Backup & Recovery', icon: ShieldAlert, mobileLabel: 'Backup' }]
@@ -126,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              v1.3.1
+              v1.4.0
             </span>
           </button>
         </div>

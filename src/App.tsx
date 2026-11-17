@@ -17,9 +17,11 @@ import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/web
 import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
 import { TypingTestTab } from './components/TypingTestTab';
+import { Profiles } from './components/Profiles';
 import { batteryService } from './services/batteryService';
 import { inputManager } from './services/inputManager';
 import { rgbService } from './services/rgbService';
+import { hardwareSettingsService } from './services/hardwareSettingsService';
 
 function getInitialRecords(): Map<number, KeyRecord> {
   const initialRecords = new Map<number, KeyRecord>();
@@ -62,14 +64,29 @@ export function App() {
     logs: ['[Init] Leobog Hi75 C Pro WebHID Configurator ready.'],
   }));
 
-  // Subscribe to webhid controller updates
+  // Subscribe to webhid controller updates & register sync callbacks
   useEffect(() => {
+    webhid.setSyncCallbacks({
+      onBattery: (percent, charging) => batteryService.updateBatteryPercentage(percent, charging),
+      onConfig: (cfg) => hardwareSettingsService.syncFromHardwareConfig(cfg),
+    });
+
     const unsubscribe = webhid.subscribe((update) => {
       setHidState((prev) => ({
         ...prev,
         ...update,
       }));
     });
+
+    // Auto-reconnect to authorized device if already plugged in
+    webhid.autoReconnect().then((connected) => {
+      if (connected && (webhid as any).device) {
+        inputManager.attachWebHIDDevice((webhid as any).device);
+        rgbService.attachDevice((webhid as any).device);
+        batteryService.attachDevice((webhid as any).device);
+      }
+    });
+
     return unsubscribe;
   }, []);
 
@@ -250,6 +267,9 @@ export function App() {
           isMacLayout={isMacLayout}
           onApplyMacLayout={handleApplyMacLayout}
           onApplyWindowsLayout={handleApplyWindowsLayout}
+          isWireless={hidState.isWireless}
+          isAsleep={hidState.isAsleep}
+          isSyncing={hidState.isSyncing}
         />
 
         <main className="flex-1 px-3.5 sm:px-6 md:px-10 pb-28 md:pb-10 space-y-4 md:space-y-6 overflow-y-auto">
@@ -301,6 +321,13 @@ export function App() {
             <GlobalSettingsPanel
               isConnected={hidState.isConnected}
               isDevMode={userMode === 'dev'}
+            />
+          )}
+
+          {activeTab === 'profiles' && (
+            <Profiles
+              onSwapWinAlt={isMacLayout ? handleApplyWindowsLayout : handleApplyMacLayout}
+              onResetAll={handleResetAll}
             />
           )}
 

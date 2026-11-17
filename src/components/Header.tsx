@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { batteryService, type BatteryState } from '../services/batteryService';
-import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb, Cable, Apple, Monitor } from 'lucide-react';
+import { Battery, BatteryCharging, BatteryWarning, Wifi, Usb, Cable, Apple, Monitor, Loader2, Moon } from 'lucide-react';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -12,6 +12,9 @@ interface HeaderProps {
   isMacLayout?: boolean;
   onApplyMacLayout?: () => void;
   onApplyWindowsLayout?: () => void;
+  isWireless?: boolean;
+  isAsleep?: boolean;
+  isSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +26,9 @@ export const Header: React.FC<HeaderProps> = ({
   isMacLayout = false,
   onApplyMacLayout,
   onApplyWindowsLayout,
+  isWireless = false,
+  isAsleep = false,
+  isSyncing = false,
 }) => {
   const [batteryState, setBatteryState] = useState<BatteryState>(batteryService.getState());
 
@@ -116,6 +122,25 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
+        {/* Syncing Status Spinner */}
+        {isConnected && isSyncing && (
+          <div className="px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-800/80 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 animate-pulse">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Syncing...</span>
+          </div>
+        )}
+
+        {/* Device Asleep Notice */}
+        {isConnected && isAsleep && (
+          <div
+            title="Keyboard sedang tidur untuk hemat daya. Tekan tombol apapun pada keyboard untuk membangunkan."
+            className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-800/80 text-amber-300 text-xs font-semibold flex items-center gap-1.5"
+          >
+            <Moon className="w-3.5 h-3.5" />
+            <span>Asleep</span>
+          </div>
+        )}
+
         {/* 1-Click OS Layout Switcher Button (To the left of Connected Status) */}
         {isConnected && (
           <button
@@ -156,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           />
           <span className="text-xs font-semibold text-zinc-400">
-            {isConnected ? 'Connected' : 'Disconnected'}
+            {isConnected ? (isWireless ? '2.4G Connected' : 'USB Connected') : 'Disconnected'}
           </span>
         </div>
       </div>

@@ -19,9 +19,40 @@ interface ChangelogEntry {
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: 'v1.3.2',
+    version: 'v1.4.0',
     releaseDate: 'November 2026',
     isLatest: true,
+    title: 'Koneksi Dongle 2.4GHz, Sinkronisasi Otomatis & Ekspor-Impor Profil JSON',
+    items: [
+      {
+        type: 'feature',
+        text: 'Dukungan Dongle Wireless 2.4GHz: Implementasi protokol WebHID receiver (VID 0x3554, PID 0xFA09, UsagePage 0xFF02, Usage 0x0002) dengan framing paket 20-byte, checksum 8-bit, dan chunking ACK.',
+      },
+      {
+        type: 'feature',
+        text: 'Sinkronisasi Otomatis Saat Konek: Saat keyboard terhubung (baik melalui kabel USB maupun dongle 2.4G), sistem secara otomatis membaca state Base keymap, shortcut FN, persentase baterai real-time, dan konfigurasi hardware (sleep/debounce).',
+      },
+      {
+        type: 'feature',
+        text: 'Ekspor & Impor Profil JSON: Fitur download dan upload profil keymap lengkap dengan validasi skema, pratinjau konfigurasi, serta kompatibilitas antar format.',
+      },
+      {
+        type: 'safety',
+        text: 'Snapshot Cadangan Keselamatan: Otomatis mencadangkan snapshot konfigurasi keyboard ke penyimpanan lokal sebelum impor diterapkan, dengan tombol 1-klik untuk memulihkan cadangan.',
+      },
+      {
+        type: 'safety',
+        text: 'Perlindungan Tombol FN Fisik (Matrix #59): Dialog konfirmasi keamanan dan peringatan visual saat memodifikasi tombol FN utama agar pengguna tidak terkunci dari fungsi layer kedua.',
+      },
+      {
+        type: 'perf',
+        text: 'Deteksi Sleep Mode Keyboard: Penanganan DeviceAsleepError tanpa merusak sesi WebHID, menampilkan status indikator "Asleep" saat keyboard masuk mode hemat daya.',
+      },
+    ],
+  },
+  {
+    version: 'v1.3.2',
+    releaseDate: 'November 2026',
     title: 'LEOBOG ONE Reverse-Engineered Hardware Ground Truth Alignment',
     items: [
       {

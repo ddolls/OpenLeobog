@@ -1,4 +1,12 @@
 import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from '../types/hid';
+import {
+  WirelessProtocolClient,
+  WIRELESS_VENDOR_ID,
+  WIRELESS_PRODUCT_ID,
+  WIRELESS_USAGE_PAGE,
+  WIRELESS_USAGE,
+  DeviceAsleepError,
+} from './wirelessProtocol';
 
 export interface WebHIDState {
   isConnected: boolean;
@@ -11,6 +19,9 @@ export interface WebHIDState {
   fnRecords?: Map<number, KeyRecord>;
   modifiedCount: number;
   logs: string[];
+  isWireless?: boolean;
+  isAsleep?: boolean;
+  isSyncing?: boolean;
 }
 
 export const PRISTINE_STAGE5_MATRIX: [number[], number[]] = [
@@ -139,14 +150,52 @@ class WebHIDController {
   private listeners: ((state: Partial<WebHIDState>) => void)[] = [];
   private logs: string[] = [];
   private connectedBaseline: Uint8Array | null = null; // First read = baseline (no false positives)
+  private wirelessClient: WirelessProtocolClient | null = null;
+  private onBatterySynced?: (percent: number, charging: boolean) => void;
+  private onConfigSynced?: (config: Uint8Array) => void;
+
+  public records: Map<number, KeyRecord> = getDefaultOfflineRecords();
+  public fnRecords: Map<number, KeyRecord> = getDefaultOfflineFnRecords();
+  public state: WebHIDState = {
+    isConnected: false,
+    deviceName: 'LEOBOG Hi75c Pro',
+    vendorId: '0x258A',
+    productId: '0x010C',
+    matrixData: null,
+    records: getDefaultOfflineRecords(),
+    fnRecords: getDefaultOfflineFnRecords(),
+    modifiedCount: 0,
+    logs: [],
+    isWireless: false,
+    isAsleep: false,
+    isSyncing: false,
+  };
 
   constructor() {
     this.initNavigatorListeners();
   }
 
+  public setSyncCallbacks(callbacks: {
+    onBattery?: (percent: number, charging: boolean) => void;
+    onConfig?: (config: Uint8Array) => void;
+  }) {
+    if (callbacks.onBattery) this.onBatterySynced = callbacks.onBattery;
+    if (callbacks.onConfig) this.onConfigSynced = callbacks.onConfig;
+  }
+
+  public getWirelessClient(): WirelessProtocolClient | null {
+    return this.wirelessClient;
+  }
+
+  public getState(): WebHIDState {
+    return { ...this.state };
+  }
+
   private initNavigatorListeners() {
     if (typeof navigator !== 'undefined' && (navigator as any).hid) {
-      (navigator as any).hid.addEventListener('disconnect', (event: any) => {
+      const hidNav = (navigator as any).hid;
+
+      hidNav.addEventListener('disconnect', (event: any) => {
         const disconnectedDev = event.device;
         if (!this.device) return;
 
@@ -159,6 +208,7 @@ class WebHIDController {
           const devName = this.device.productName || 'Leobog Hi75c Pro';
           this.log(`Device disconnected (${devName}).`);
           this.device = null;
+          this.wirelessClient = null;
           this.connectedBaseline = null;
           this.notify({
             isConnected: false,
@@ -167,10 +217,60 @@ class WebHIDController {
             records: getDefaultOfflineRecords(),
             fnRecords: getDefaultOfflineFnRecords(),
             modifiedCount: 0,
+            isWireless: false,
+            isAsleep: false,
+            isSyncing: false,
           });
         }
       });
+
+      // Automatically reconnect when a paired Leobog device is plugged in
+      hidNav.addEventListener('connect', async (event: any) => {
+        const connectedDev = event.device;
+        if (!this.device) {
+          const isLeobog =
+            connectedDev.vendorId === 0x258A || connectedDev.vendorId === WIRELESS_VENDOR_ID;
+          if (isLeobog) {
+            this.log(`LEOBOG device plugged in (${connectedDev.productName || 'Device'}). Auto-connecting...`);
+            await this.autoReconnect();
+          }
+        }
+      });
     }
+  }
+
+  public async autoReconnect(): Promise<boolean> {
+    if (typeof navigator === 'undefined' || !(navigator as any).hid) {
+      return false;
+    }
+    try {
+      const hidNav = (navigator as any).hid;
+      const devices = await hidNav.getDevices();
+      if (!devices || devices.length === 0) return false;
+
+      // Look for 2.4G wireless receiver or wired keyboard
+      const wirelessDev = devices.find((d: any) =>
+        d.vendorId === WIRELESS_VENDOR_ID &&
+        (d.collections || []).some(
+          (c: any) => c.usagePage === WIRELESS_USAGE_PAGE && c.usage === WIRELESS_USAGE
+        )
+      );
+      const wiredDev = devices.find((d: any) =>
+        d.vendorId === 0x258A &&
+        (d.collections || []).some((c: any) =>
+          (c.featureReports || []).some((r: any) => r.reportId === 6)
+        )
+      );
+
+      const target = wirelessDev || wiredDev;
+      if (target) {
+        this.log('Auto-reconnecting to authorized LEOBOG device...');
+        return await this.connectDevice(target);
+      }
+    } catch (err: any) {
+      this.log(`Auto-reconnect check: ${err.message}`);
+    }
+    return false;
   }
 
   public async disconnect(): Promise<void> {
@@ -184,6 +284,7 @@ class WebHIDController {
       }
       this.device = null;
     }
+    this.wirelessClient = null;
     this.connectedBaseline = null;
     this.notify({
       isConnected: false,
@@ -192,6 +293,9 @@ class WebHIDController {
       records: getDefaultOfflineRecords(),
       fnRecords: getDefaultOfflineFnRecords(),
       modifiedCount: 0,
+      isWireless: false,
+      isAsleep: false,
+      isSyncing: false,
     });
     this.log('WebHID device disconnected.');
   }
@@ -215,8 +319,69 @@ class WebHIDController {
     };
   }
 
-  private notify(state: Partial<WebHIDState>) {
-    this.listeners.forEach(fn => fn(state));
+  private notify(partial: Partial<WebHIDState>) {
+    if (partial.records) {
+      this.records = partial.records;
+    }
+    if (partial.fnRecords) {
+      this.fnRecords = partial.fnRecords;
+    }
+    this.state = {
+      ...this.state,
+      ...partial,
+    };
+    this.listeners.forEach(fn => fn(partial));
+  }
+
+  public async connectDevice(targetDev: any): Promise<boolean> {
+    try {
+      if (!targetDev.opened) {
+        this.log('Opening WebHID interface...');
+        await targetDev.open();
+      }
+      this.device = targetDev;
+
+      const isWireless =
+        targetDev.vendorId === WIRELESS_VENDOR_ID ||
+        (targetDev.productName || '').toLowerCase().includes('2.4g') ||
+        (targetDev.productName || '').toLowerCase().includes('dongle') ||
+        (targetDev.productName || '').toLowerCase().includes('receiver');
+
+      if (isWireless) {
+        this.wirelessClient = new WirelessProtocolClient(this.device);
+      } else {
+        this.wirelessClient = null;
+      }
+
+      const rawName = (this.device.productName || '').trim();
+      const devName = isWireless
+        ? 'LEOBOG Hi75c Pro (2.4G)'
+        : (!rawName || rawName.toLowerCase() === 'gaming keyboard')
+        ? 'LEOBOG Hi75c Pro'
+        : rawName;
+
+      const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
+      const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
+      const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
+
+      this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Mode: ${isWireless ? '2.4GHz Wireless' : 'Wired USB'}`);
+
+      this.notify({
+        isConnected: true,
+        deviceName: devName,
+        vendorId: vidHex,
+        productId: pidHex,
+        firmwareVersion: fwVersion,
+        isWireless,
+        isAsleep: false,
+      });
+
+      await this.syncAllFromHardware();
+      return true;
+    } catch (err: any) {
+      this.log(`Connection error: ${err.message}`);
+      return false;
+    }
   }
 
   public async connect(): Promise<boolean> {
@@ -227,8 +392,23 @@ class WebHIDController {
       }
 
       this.log('Checking existing authorized HID devices...');
-      let existing = await hidNav.getDevices();
-      let matched = existing.find((d: any) => d.vendorId === 0x258A || d.vendorId === 0x3554);
+      const allDevices = await hidNav.getDevices();
+
+      // Look for 2.4G wireless or wired interface
+      const wirelessDev = allDevices.find((d: any) =>
+        d.vendorId === WIRELESS_VENDOR_ID &&
+        (d.collections || []).some(
+          (c: any) => c.usagePage === WIRELESS_USAGE_PAGE && c.usage === WIRELESS_USAGE
+        )
+      );
+      const wiredDev = allDevices.find((d: any) =>
+        d.vendorId === 0x258A &&
+        (d.collections || []).some((c: any) =>
+          (c.featureReports || []).some((r: any) => r.reportId === 6)
+        )
+      );
+
+      let matched = wirelessDev || wiredDev;
 
       if (!matched) {
         this.log('Requesting HID device picker (VID: 0x258A / 0x3554)...');
@@ -236,75 +416,119 @@ class WebHIDController {
           filters: [
             { vendorId: 0x258A, productId: 0x010C },
             { vendorId: 0x258A },
-            { vendorId: 0x3554, productId: 0xFA09 },
-            { vendorId: 0x3554 }
-          ]
+            { vendorId: WIRELESS_VENDOR_ID, productId: WIRELESS_PRODUCT_ID, usagePage: WIRELESS_USAGE_PAGE, usage: WIRELESS_USAGE },
+            { vendorId: WIRELESS_VENDOR_ID, productId: WIRELESS_PRODUCT_ID },
+            { vendorId: WIRELESS_VENDOR_ID },
+          ],
         });
 
         if (!devices || devices.length === 0) {
           this.log('No device selected by user in picker.');
           return false;
         }
-        matched = devices[0];
+
+        const freshDevices = await hidNav.getDevices();
+        matched =
+          freshDevices.find((d: any) =>
+            d.vendorId === WIRELESS_VENDOR_ID &&
+            (d.collections || []).some((c: any) => c.usagePage === WIRELESS_USAGE_PAGE && c.usage === WIRELESS_USAGE)
+          ) ||
+          freshDevices.find((d: any) =>
+            d.vendorId === 0x258A &&
+            (d.collections || []).some((c: any) =>
+              (c.featureReports || []).some((r: any) => r.reportId === 6)
+            )
+          ) ||
+          devices[0];
       }
 
-      const allDevices = await hidNav.getDevices();
-      const targetDevs = allDevices.filter((d: any) => d.vendorId === 0x258A || d.vendorId === 0x3554);
-      
-      this.device = targetDevs.find((d: any) => 
-        (d.collections || []).some((c: any) => 
-          (c.featureReports || []).some((r: any) => r.reportId === 6)
-        )
-      ) || matched || targetDevs[0];
-
-      if (!this.device) {
+      if (!matched) {
         throw new Error('No valid Leobog Hi75 C Pro device found.');
       }
 
-      if (!this.device.opened) {
-        this.log('Opening WebHID interface...');
-        await this.device.open();
-      }
-
-      const rawName = (this.device.productName || '').trim();
-      // SinoWealth hardware USB descriptor returns generic "Gaming Keyboard"
-      // Map to official product name "LEOBOG Hi75c Pro"
-      const devName = (!rawName || rawName.toLowerCase() === 'gaming keyboard')
-        ? 'LEOBOG Hi75c Pro'
-        : rawName;
-
-      const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
-      const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
-
-      const isWireless = rawName.toLowerCase().includes('2.4g') ||
-                         rawName.toLowerCase().includes('dongle') ||
-                         rawName.toLowerCase().includes('receiver') ||
-                         rawName.toLowerCase().includes('wireless');
-      const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
-
-      this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Firmware: ${fwVersion}`);
-      
-      this.notify({
-        isConnected: true,
-        deviceName: devName,
-        vendorId: vidHex,
-        productId: pidHex,
-        firmwareVersion: fwVersion,
-      });
-
-      await this.readMatrixData();
-      return true;
+      return await this.connectDevice(matched);
     } catch (err: any) {
       this.log(`Connection error: ${err.message}`);
-      alert(`Connection failed: ${err.message}\n\nTips:\n1. Close official LEOBOG software if running.\n2. Ensure keyboard is connected via USB cable.\n3. Re-plug USB cable and try again.`);
+      alert(`Connection failed: ${err.message}\n\nTips:\n1. Close official LEOBOG software if running.\n2. Ensure keyboard is connected via USB cable or 2.4G receiver.\n3. Re-plug USB cable/receiver and try again.`);
       return false;
     }
   }
 
-  // Exact v1.2 readBase implementation (512 bytes)
+  // Full hardware state synchronization
+  public async syncAllFromHardware(): Promise<boolean> {
+    if (!this.device || !this.device.opened) return false;
+
+    this.notify({ isSyncing: true, isAsleep: false });
+    this.log('Synchronizing state from keyboard hardware...');
+
+    try {
+      if (this.wirelessClient) {
+        // 1. Read battery status
+        try {
+          const batt = await this.wirelessClient.readBattery();
+          this.log(`[2.4G Sync] Battery: ${batt.percent}% (Charging: ${batt.charging})`);
+          this.notify({ isAsleep: false });
+          if (this.onBatterySynced) {
+            this.onBatterySynced(batt.percent, batt.charging);
+          }
+        } catch (err: any) {
+          if (err instanceof DeviceAsleepError) {
+            this.notify({ isAsleep: true });
+            this.log('[2.4G Sync] Keyboard did not respond (device may be asleep).');
+          } else {
+            this.log(`[2.4G Sync] Battery telemetry read: ${err.message}`);
+          }
+        }
+
+        // 2. Read device configuration (EEPROM sleep timeout, debounce, etc.)
+        try {
+          const cfg = await this.wirelessClient.readConfig();
+          this.log(`[2.4G Sync] Hardware config read: ${cfg.length} bytes.`);
+          if (this.onConfigSynced) {
+            this.onConfigSynced(cfg);
+          }
+        } catch (err: any) {
+          if (err instanceof DeviceAsleepError) {
+            this.notify({ isAsleep: true });
+          } else {
+            this.log(`[2.4G Sync] Config read: ${err.message}`);
+          }
+        }
+      }
+
+      // 3. Read Base Keymap & FN Keymap
+      await this.readMatrixData();
+
+      this.notify({ isSyncing: false });
+      this.log('Hardware state successfully synchronized.');
+      return true;
+    } catch (err: any) {
+      this.notify({ isSyncing: false });
+      this.log(`Hardware synchronization warning: ${err.message}`);
+      return false;
+    }
+  }
+
+  // Exact v1.2 readBase implementation (512 bytes) - Dual-mode (USB & 2.4G Wireless)
   public async readBaseTable(): Promise<Uint8Array> {
     if (!this.device || !this.device.opened) {
       throw new Error('Device not connected');
+    }
+
+    if (this.wirelessClient) {
+      try {
+        const keymap504 = await this.wirelessClient.readKeymap(0);
+        const table512 = new Uint8Array(512);
+        table512.set(keymap504, 0);
+        this.notify({ isAsleep: false });
+        return table512;
+      } catch (err: any) {
+        if (err instanceof DeviceAsleepError) {
+          this.notify({ isAsleep: true });
+          this.log('2.4G Wireless Keyboard is asleep. Press any key to wake.');
+        }
+        throw err;
+      }
     }
 
     const query = new Uint8Array(519);
@@ -325,7 +549,7 @@ class WebHIDController {
     return data.slice(base + 7, base + 519);
   }
 
-  // Exact v1.2 writeBase implementation (512 bytes)
+  // Exact v1.2 writeBase implementation (512 bytes) - Dual-mode (USB & 2.4G Wireless)
   public async writeBaseTable(table0Data: Uint8Array): Promise<boolean> {
     if (!this.device || !this.device.opened) {
       throw new Error('Device not connected');
@@ -333,6 +557,21 @@ class WebHIDController {
 
     if (table0Data.length !== 512) {
       throw new Error('Table 0 data must be exactly 512 bytes');
+    }
+
+    if (this.wirelessClient) {
+      try {
+        const keymap504 = table0Data.subarray(0, 504);
+        await this.wirelessClient.writeKeymap(0, keymap504);
+        this.notify({ isAsleep: false });
+        return true;
+      } catch (err: any) {
+        if (err instanceof DeviceAsleepError) {
+          this.notify({ isAsleep: true });
+          this.log('2.4G Wireless Keyboard is asleep. Press any key to wake.');
+        }
+        throw err;
+      }
     }
 
     const query = new Uint8Array(519);
@@ -350,10 +589,25 @@ class WebHIDController {
     return true;
   }
 
-  // Read FN Table (Packet Index 1 - 512 bytes)
+  // Read FN Table (Packet Index 1 - 512 bytes) - Dual-mode (USB & 2.4G Wireless)
   public async readFnTable(): Promise<Uint8Array> {
     if (!this.device || !this.device.opened) {
       throw new Error('Device not connected');
+    }
+
+    if (this.wirelessClient) {
+      try {
+        const keymap504 = await this.wirelessClient.readKeymap(1);
+        const table512 = new Uint8Array(512);
+        table512.set(keymap504, 0);
+        this.notify({ isAsleep: false });
+        return table512;
+      } catch (err: any) {
+        if (err instanceof DeviceAsleepError) {
+          this.notify({ isAsleep: true });
+        }
+        throw err;
+      }
     }
 
     const query = new Uint8Array(519);
@@ -374,7 +628,7 @@ class WebHIDController {
     return data.slice(base + 7, base + 519);
   }
 
-  // Write FN Table (Packet Index 1 - 512 bytes)
+  // Write FN Table (Packet Index 1 - 512 bytes) - Dual-mode (USB & 2.4G Wireless)
   public async writeFnTable(fnTableData: Uint8Array): Promise<boolean> {
     if (!this.device || !this.device.opened) {
       throw new Error('Device not connected');
@@ -382,6 +636,20 @@ class WebHIDController {
 
     if (fnTableData.length !== 512) {
       throw new Error('FN Table data must be exactly 512 bytes');
+    }
+
+    if (this.wirelessClient) {
+      try {
+        const keymap504 = fnTableData.subarray(0, 504);
+        await this.wirelessClient.writeKeymap(1, keymap504);
+        this.notify({ isAsleep: false });
+        return true;
+      } catch (err: any) {
+        if (err instanceof DeviceAsleepError) {
+          this.notify({ isAsleep: true });
+        }
+        throw err;
+      }
     }
 
     const query = new Uint8Array(519);
