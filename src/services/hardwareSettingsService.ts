@@ -145,8 +145,55 @@ class HardwareSettingsService {
     if (!dev || !dev.opened) {
       return {
         success: false,
-        message: 'Device is not connected. Please connect via USB cable and initialize WebHID first.',
+        message: 'Device is not connected. Please connect via USB cable or 2.4G dongle and initialize WebHID first.',
       };
+    }
+
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      this.isApplying = true;
+      try {
+        const sleepUnits = this.settings.sleepEnabled
+          ? Math.max(1, Math.min(120, Math.round(this.settings.sleepTimeoutSeconds / 30)))
+          : 0;
+        const debounceStage = Math.max(1, Math.min(5, this.settings.debounceStage));
+        const tapVal = this.settings.tapEnabled
+          ? Math.max(1, Math.min(10, Math.round(this.settings.tapSensitivityMs / 50)))
+          : 0;
+
+        let cfg: Uint8Array;
+        try {
+          cfg = await wirelessClient.readConfig();
+        } catch {
+          cfg = new Uint8Array(128);
+        }
+        const newCfg = new Uint8Array(cfg);
+        newCfg[126] = 0x5a;
+        newCfg[127] = 0xa5;
+
+        newCfg[3] = debounceStage;
+        newCfg[2] = debounceStage;
+        newCfg[22] = tapVal;
+        newCfg[8] = tapVal;
+        newCfg[24] = sleepUnits;
+
+        await wirelessClient.writeConfig(newCfg);
+        await rgbService.readDeviceConfig(true);
+
+        this.isApplying = false;
+        webhid.log(`[Hardware Settings 2.4G] Successfully written to keyboard memory.`);
+        return {
+          success: true,
+          message: 'Pengaturan Sleep, Debounce, dan Tap berhasil disimpan ke memori keyboard via 2.4G!',
+        };
+      } catch (err: any) {
+        webhid.log(`[Hardware Settings 2.4G Error] Write error: ${err.message}`);
+        this.isApplying = false;
+        return {
+          success: false,
+          message: `Gagal menyimpan ke hardware via 2.4G: ${err.message}`,
+        };
+      }
     }
 
     this.isApplying = true;

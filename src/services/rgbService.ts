@@ -154,6 +154,11 @@ class RgbControllerService {
       return 'Leobog Hi75 C Pro (Simulated)';
     }
 
+    if (webhid.getWirelessClient()) {
+      this.detectedModel = 'LEOBOG Hi75c Pro (2.4G)';
+      return this.detectedModel;
+    }
+
     try {
       const pkt = new Uint8Array(519);
       pkt[0] = 0x82;
@@ -182,10 +187,66 @@ class RgbControllerService {
     }
   }
 
-  // Read current lighting configuration via CMD 0x84 (returns 136 bytes)
+  // Read current lighting configuration via CMD 0x84 (returns 136 bytes) - Dual-mode (USB & 2.4G)
   public async readDeviceConfig(silent = false): Promise<Uint8Array | null> {
     if (!this.device || !this.device.opened) {
       return null;
+    }
+
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      try {
+        const cfg128 = await wirelessClient.readConfig();
+        const config136 = new Uint8Array(136);
+        config136[0] = 0x84;
+        config136.set(cfg128, 7);
+        this.cachedConfig = config136;
+        this.configListeners.forEach((fn) => {
+          try {
+            fn(this.cachedConfig!);
+          } catch {
+            // Ignore listener error
+          }
+        });
+
+        if (!silent) {
+          const customFlag = cfg128[9] === 1;
+          const effectId = cfg128[10];
+          const sideLightMode = cfg128[18];
+
+          const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
+          const base = 58 + slotIdx * 2;
+          const brightness = Math.min(4, Math.max(1, cfg128[base] || 4));
+          const speedByte = cfg128[base + 1] ?? 0x27;
+          const speed = Math.min(4, Math.max(0, (speedByte >> 4) & 0x0f));
+          const colorful = (speedByte & 0x0f) !== 0;
+
+          const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
+          const validEffectId =
+            typeof effectId === 'number' && (isKnownEffect || (effectId >= 0 && effectId <= 32))
+              ? effectId
+              : this.state.effectId;
+          const validSideLight =
+            typeof sideLightMode === 'number' && sideLightMode <= 4 ? sideLightMode : this.state.sideLightMode;
+
+          this.notify({
+            effectId: validEffectId,
+            customMode: customFlag,
+            sideLightMode: validSideLight,
+            brightness,
+            speed,
+            colorful,
+          });
+
+          webhid.log(
+            `[RGB 2.4G Sync] Effect: #${validEffectId}, Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Side: ${validSideLight}`
+          );
+        }
+        return this.cachedConfig;
+      } catch (err: any) {
+        webhid.log(`[RGB 2.4G] Config read error: ${err.message}`);
+        return null;
+      }
     }
 
     try {
@@ -294,6 +355,95 @@ class RgbControllerService {
     if (!this.device || !this.device.opened) {
       webhid.log(`[RGB Offline] Hardware effect set to #${effectId} (Color: ${normalizedColor}, Colorful: ${colorful})`);
       return true;
+    }
+
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      return this.runExclusive(async () => {
+        try {
+          webhid.log(
+            `[RGB 2.4G] Applying Effect #${effectId} (Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${normalizedColor})...`
+          );
+
+          let cfg128: Uint8Array;
+          try {
+            cfg128 = await wirelessClient.readConfig();
+          } catch {
+            cfg128 = new Uint8Array(128);
+          }
+
+          const newCfg = new Uint8Array(128);
+          newCfg.set(cfg128);
+          newCfg[126] = 0x5a;
+          newCfg[127] = 0xa5;
+
+          // custom_flag = 0, effectId
+          newCfg[9] = 0x00;
+          newCfg[10] = effectId;
+
+          // secondary lights
+          newCfg[18] = 0x00;
+          newCfg[28] = 0x00;
+
+          if (effectId > 0 && effectId <= 32) {
+            const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
+            const base = 58 + slotIdx * 2;
+            newCfg[base] = Math.max(1, Math.min(4, brightness));
+            const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
+            const lower = colorful ? 0x07 : 0x00;
+            newCfg[base + 1] = upper | lower;
+          } else if (effectId === 0) {
+            newCfg[10] = 0x00;
+          }
+
+          await wirelessClient.writeConfig(newCfg);
+
+          if (COLOR_CAPABLE_MODES.includes(effectId) && !colorful) {
+            try {
+              let pal: Uint8Array;
+              try {
+                pal = await wirelessClient.readPalette();
+              } catch {
+                pal = new Uint8Array(490);
+              }
+              const newPal = new Uint8Array(490);
+              newPal.set(pal);
+              const rgb = hexToRgb(normalizedColor);
+              if (effectId >= 1 && effectId <= 23) {
+                const pOff = (effectId - 1) * 21;
+                newPal[pOff] = rgb.r;
+                newPal[pOff + 1] = rgb.g;
+                newPal[pOff + 2] = rgb.b;
+                await wirelessClient.writePalette(newPal);
+              }
+            } catch (palErr: any) {
+              webhid.log(`[RGB 2.4G Palette] Warning: ${palErr.message}`);
+            }
+          }
+
+          const config136 = new Uint8Array(136);
+          config136[0] = 0x84;
+          config136.set(newCfg, 7);
+          this.cachedConfig = config136;
+
+          this.notify({
+            effectId,
+            brightness,
+            speed,
+            colorful,
+            staticColor: normalizedColor,
+            customMode: false,
+            isDirectStreaming: false,
+            activeSoftwareAnim: null,
+          });
+
+          webhid.log(`[RGB 2.4G] Effect #${effectId} successfully committed to keyboard memory!`);
+          return true;
+        } catch (err: any) {
+          webhid.log(`[RGB 2.4G Error] Failed to write effect: ${err.message}`);
+          return false;
+        }
+      });
     }
 
     return this.runExclusive(async () => {
@@ -454,6 +604,31 @@ class RgbControllerService {
   public async writeStaticColorProfile(hex: string): Promise<boolean> {
     if (!this.device || !this.device.opened) return true;
 
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      try {
+        const rgb = hexToRgb(hex);
+        let pal: Uint8Array;
+        try {
+          pal = await wirelessClient.readPalette();
+        } catch {
+          pal = new Uint8Array(490);
+        }
+        const newPal = new Uint8Array(490);
+        newPal.set(pal);
+        const currEff = this.state.effectId >= 1 && this.state.effectId <= 23 ? this.state.effectId : 1;
+        const pOff = (currEff - 1) * 21;
+        newPal[pOff] = rgb.r;
+        newPal[pOff + 1] = rgb.g;
+        newPal[pOff + 2] = rgb.b;
+        await wirelessClient.writePalette(newPal);
+        return true;
+      } catch (err: any) {
+        webhid.log(`[RGB 2.4G] Static color profile error: ${err.message}`);
+        return false;
+      }
+    }
+
     try {
       const rgb = hexToRgb(hex);
       const pkt = new Uint8Array(519); // Initialized to all zeros
@@ -501,6 +676,21 @@ class RgbControllerService {
       return true;
     }
 
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      try {
+        let cfg = await wirelessClient.readConfig();
+        const newCfg = new Uint8Array(cfg);
+        newCfg[18] = Math.max(0, Math.min(4, mode));
+        await wirelessClient.writeConfig(newCfg);
+        webhid.log(`[RGB 2.4G] Side-light mode ${mode} applied.`);
+        return true;
+      } catch (err: any) {
+        webhid.log(`[RGB 2.4G] Side-light error: ${err.message}`);
+        return false;
+      }
+    }
+
     try {
       const freshConfig = await this.readDeviceConfig(true);
       await new Promise((r) => setTimeout(r, 20));
@@ -545,6 +735,44 @@ class RgbControllerService {
     if (!this.device || !this.device.opened) {
       webhid.log(`[RGB Offline] Per-key colors saved (${Object.keys(perKeyColors).length} keys).`);
       return true;
+    }
+
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      return this.runExclusive(async () => {
+        try {
+          webhid.log(`[RGB 2.4G] Uploading per-key planar RGB colors (${Object.keys(perKeyColors).length} keys)...`);
+          const rgb378 = new Uint8Array(378);
+
+          for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
+            const idx = parseInt(keyIdxStr, 10);
+            if (idx >= 0 && idx < 126) {
+              const rgb = hexToRgb(hex);
+              rgb378[idx] = rgb.r;
+              rgb378[126 + idx] = rgb.g;
+              rgb378[252 + idx] = rgb.b;
+            }
+          }
+
+          let cfg: Uint8Array;
+          try {
+            cfg = await wirelessClient.readConfig();
+          } catch {
+            cfg = new Uint8Array(128);
+          }
+          const newCfg = new Uint8Array(cfg);
+          newCfg[9] = 0x01; // customFlag = 1
+          newCfg[10] = 32; // Custom effect mode
+          await wirelessClient.writeConfig(newCfg);
+          await wirelessClient.writeRgbMap(rgb378);
+
+          webhid.log('[RGB 2.4G] Per-key planar RGB successfully applied!');
+          return true;
+        } catch (err: any) {
+          webhid.log(`[RGB 2.4G Error] Failed to write planar RGB: ${err.message}`);
+          return false;
+        }
+      });
     }
 
     return this.runExclusive(async () => {
@@ -613,7 +841,7 @@ class RgbControllerService {
 
   // Send Direct Mode LED Frame (transmits both Planar CMD 0x06 and Direct CMD 0x08 for 122 keys)
   public async sendDirectFrame(colors: (RGBColor | null)[]): Promise<boolean> {
-    if (!this.device || !this.device.opened || this.isSendingFrame) {
+    if (!this.device || !this.device.opened || this.isSendingFrame || webhid.getWirelessClient()) {
       return false;
     }
 
