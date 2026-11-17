@@ -38,6 +38,34 @@ export function rgbToHex(r: number, g: number, b: number): string {
 // Modes that support custom single-color in firmware
 const COLOR_CAPABLE_MODES = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13];
 
+// Hardware preset palette colors in SinoWealth ROM (indices 0..6, index 7 = Multicolor)
+export const HW_COLOR_PRESETS = [
+  { index: 0, r: 255, g: 43, b: 43 },   // Red (#ff2b2b)
+  { index: 1, r: 255, g: 140, b: 26 },  // Orange (#ff8c1a)
+  { index: 2, r: 255, g: 225, b: 26 },  // Yellow (#ffe11a)
+  { index: 3, r: 46, g: 230, b: 92 },   // Green (#2ee65c)
+  { index: 4, r: 26, g: 229, b: 255 },  // Cyan (#1ae5ff)
+  { index: 5, r: 46, g: 107, b: 255 },  // Blue (#2e6bff)
+  { index: 6, r: 184, g: 51, b: 255 },  // Purple (#b833ff)
+];
+
+export function findClosestHwColorIndex(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  let bestIdx = 4; // Default to Cyan
+  let bestDist = Infinity;
+  for (const p of HW_COLOR_PRESETS) {
+    const dr = r - p.r;
+    const dg = g - p.g;
+    const db = b - p.b;
+    const dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = p.index;
+    }
+  }
+  return bestIdx;
+}
+
 class RgbControllerService {
   private device: any = null;
   private state: RgbConfigState = { ...DEFAULT_RGB_STATE };
@@ -385,18 +413,18 @@ class RgbControllerService {
           newCfg[18] = 0x00;
           newCfg[28] = 0x00;
 
+          const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
+
           if (effectId > 0 && effectId <= 32) {
             const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
             const base = 58 + slotIdx * 2;
             newCfg[base] = Math.max(1, Math.min(4, brightness));
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
-            const lower = colorful ? 0x07 : 0x00;
+            const lower = colorIdx & 0x0f;
             newCfg[base + 1] = upper | lower;
           } else if (effectId === 0) {
             newCfg[10] = 0x00;
           }
-
-          await wirelessClient.writeConfig(newCfg);
 
           if (COLOR_CAPABLE_MODES.includes(effectId) && !colorful) {
             try {
@@ -411,6 +439,10 @@ class RgbControllerService {
               const rgb = hexToRgb(normalizedColor);
               if (effectId >= 1 && effectId <= 23) {
                 const pOff = (effectId - 1) * 21;
+                // Write user's RGB to both the matching color slot and index 0
+                newPal[pOff + colorIdx * 3] = rgb.r;
+                newPal[pOff + colorIdx * 3 + 1] = rgb.g;
+                newPal[pOff + colorIdx * 3 + 2] = rgb.b;
                 newPal[pOff] = rgb.r;
                 newPal[pOff + 1] = rgb.g;
                 newPal[pOff + 2] = rgb.b;
@@ -420,6 +452,8 @@ class RgbControllerService {
               webhid.log(`[RGB 2.4G Palette] Warning: ${palErr.message}`);
             }
           }
+
+          await wirelessClient.writeConfig(newCfg);
 
           const config136 = new Uint8Array(136);
           config136[0] = 0x84;
@@ -742,7 +776,12 @@ class RgbControllerService {
       return this.runExclusive(async () => {
         try {
           webhid.log(`[RGB 2.4G] Uploading per-key planar RGB colors (${Object.keys(perKeyColors).length} keys)...`);
-          const rgb378 = new Uint8Array(378);
+          let rgb378: Uint8Array;
+          try {
+            rgb378 = await wirelessClient.readRgbMap();
+          } catch {
+            rgb378 = new Uint8Array(378);
+          }
 
           for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
             const idx = parseInt(keyIdxStr, 10);
@@ -754,17 +793,28 @@ class RgbControllerService {
             }
           }
 
+          // Step 1: Write RGB color map first
+          await wirelessClient.writeRgbMap(rgb378);
+
+          // Step 2: Write configuration enabling customFlag with valid magic bytes
           let cfg: Uint8Array;
           try {
             cfg = await wirelessClient.readConfig();
           } catch {
             cfg = new Uint8Array(128);
           }
-          const newCfg = new Uint8Array(cfg);
+          const newCfg = new Uint8Array(128);
+          newCfg.set(cfg);
           newCfg[9] = 0x01; // customFlag = 1
-          newCfg[10] = 32; // Custom effect mode
+          newCfg[10] = 32; // Custom per-key effect mode
+          newCfg[126] = 0x5a;
+          newCfg[127] = 0xa5;
           await wirelessClient.writeConfig(newCfg);
-          await wirelessClient.writeRgbMap(rgb378);
+
+          const config136 = new Uint8Array(136);
+          config136[0] = 0x84;
+          config136.set(newCfg, 7);
+          this.cachedConfig = config136;
 
           webhid.log('[RGB 2.4G] Per-key planar RGB successfully applied!');
           return true;

@@ -50,15 +50,11 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     stagedColorsRef.current = rgbState.perKeyColors;
   }, [rgbState.perKeyColors]);
 
-  // Global mouse up listener: when drag stroke completes, commit the final painted frame ONCE safely
+  // Global mouse up listener: when drag stroke completes, release mouse state
   useEffect(() => {
     const handleMouseUp = () => {
       setIsMouseDown(false);
-      if (hasPaintedInStrokeRef.current) {
-        hasPaintedInStrokeRef.current = false;
-        // Single guarded write to keyboard after dragging finishes
-        rgbService.applyPerKeyPlanar(stagedColorsRef.current);
-      }
+      hasPaintedInStrokeRef.current = false;
     };
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
@@ -192,6 +188,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
 
   // Per-key paint click handler (safe staged painting during drag)
   const handleKeyPaint = (matrixIdx: number, isDragging: boolean = false) => {
+    void isDragging;
     const updated = {
       ...stagedColorsRef.current,
       [matrixIdx]: brushColor,
@@ -199,11 +196,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     stagedColorsRef.current = updated;
     setStagedColors(updated);
     hasPaintedInStrokeRef.current = true;
-
-    // Single click (not drag): apply right away
-    if (!isDragging) {
-      rgbService.applyPerKeyPlanar(updated);
-    }
   };
 
   const handleFillAll = () => {
@@ -213,7 +205,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(filled);
     stagedColorsRef.current = filled;
-    rgbService.applyPerKeyPlanar(filled);
   };
 
   const handleClearAll = () => {
@@ -223,7 +214,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(cleared);
     stagedColorsRef.current = cleared;
-    rgbService.applyPerKeyPlanar(cleared);
   };
 
   // 1-Click Zone Preset: FPS Focus (WASD + Space + Shift + LCtrl in Neon Red/Cyan)
@@ -246,7 +236,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(fps);
     stagedColorsRef.current = fps;
-    rgbService.applyPerKeyPlanar(fps);
   };
 
   // 1-Click Zone Preset: MOBA Cluster (QWER + DF + 1-6)
@@ -271,7 +260,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     moba[35] = '#ffffff';
     setStagedColors(moba);
     stagedColorsRef.current = moba;
-    rgbService.applyPerKeyPlanar(moba);
   };
 
   // 1-Click Zone Preset: Arrows & Navigation Cluster
@@ -292,7 +280,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     nav[0] = '#f43f5e';
     setStagedColors(nav);
     stagedColorsRef.current = nav;
-    rgbService.applyPerKeyPlanar(nav);
   };
 
   // 1-Click Zone Preset: Function Row F1-F12 Gradient
@@ -308,7 +295,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(fRow);
     stagedColorsRef.current = fRow;
-    rgbService.applyPerKeyPlanar(fRow);
   };
 
   // 1-Click Zone Preset: Cyberpunk Neon Matrix
@@ -320,7 +306,6 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(cyber);
     stagedColorsRef.current = cyber;
-    rgbService.applyPerKeyPlanar(cyber);
   };
 
   const handleRainbowGradient = () => {
@@ -331,16 +316,21 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     });
     setStagedColors(gradient);
     stagedColorsRef.current = gradient;
-    rgbService.applyPerKeyPlanar(gradient);
   };
 
   const handleSaveToFlash = async () => {
+    if (saveStatus === 'Saving...') return;
     setSaveStatus('Saving...');
-    const ok = await rgbService.applyPerKeyPlanar(stagedColorsRef.current);
-    if (ok) {
-      setSaveStatus('Saved to Keyboard Memory!');
-      setTimeout(() => setSaveStatus(null), 2500);
-    } else {
+    try {
+      const ok = await rgbService.applyPerKeyPlanar(stagedColorsRef.current);
+      if (ok) {
+        setSaveStatus('Saved to Keyboard Memory!');
+        setTimeout(() => setSaveStatus(null), 2500);
+      } else {
+        setSaveStatus('Save failed. Wake keyboard (Fn+\\)');
+        setTimeout(() => setSaveStatus(null), 3000);
+      }
+    } catch {
       setSaveStatus('Save failed');
       setTimeout(() => setSaveStatus(null), 2500);
     }
@@ -899,9 +889,10 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
 
               <button
                 onClick={handleSaveToFlash}
-                className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer ml-auto"
+                disabled={saveStatus === 'Saving...'}
+                className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer ml-auto"
               >
-                <Check className="w-3.5 h-3.5" /> Save to Keyboard
+                <Check className="w-3.5 h-3.5" /> {saveStatus === 'Saving...' ? 'Saving...' : 'Save to Keyboard'}
               </button>
             </div>
           </div>

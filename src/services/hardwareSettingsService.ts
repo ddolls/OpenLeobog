@@ -184,14 +184,14 @@ class HardwareSettingsService {
         webhid.log(`[Hardware Settings 2.4G] Successfully written to keyboard memory.`);
         return {
           success: true,
-          message: 'Pengaturan Sleep, Debounce, dan Tap berhasil disimpan ke memori keyboard via 2.4G!',
+          message: 'Sleep, Debounce, and Tap settings successfully saved to keyboard memory via 2.4G!',
         };
       } catch (err: any) {
         webhid.log(`[Hardware Settings 2.4G Error] Write error: ${err.message}`);
         this.isApplying = false;
         return {
           success: false,
-          message: `Gagal menyimpan ke hardware via 2.4G: ${err.message}`,
+          message: `Failed to save to hardware via 2.4G: ${err.message}`,
         };
       }
     }

@@ -36,9 +36,9 @@ export const RGB_SIZE = KEYMAP_KEY_COUNT * 3; // 378 bytes
 export const PALETTE_SIZE = 490;
 
 export const WRITE_INTER_PACKET_GAP_MS = 15;
-export const POST_WRITE_SETTLE_MS = 60;
-export const READ_TIMEOUT_MS = 150;
-export const READ_MAX_ATTEMPTS = 5;
+export const POST_WRITE_SETTLE_MS = 400;
+export const READ_TIMEOUT_MS = 350;
+export const READ_MAX_ATTEMPTS = 3;
 
 export class DeviceAsleepError extends Error {
   constructor(message = 'Keyboard did not respond (device may be asleep)') {

@@ -35,12 +35,12 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
       profileManager.exportProfile(exportName.trim() || 'Custom Layout');
       setStatusMessage({
         type: 'success',
-        text: `Profil "${exportName}" berhasil diekspor ke file JSON!`,
+        text: `Profile "${exportName}" successfully exported to JSON file!`,
       });
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: `Gagal mengekspor profil: ${err.message}`,
+        text: `Failed to export profile: ${err.message}`,
       });
     }
   };
@@ -58,13 +58,13 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
         setImportedProfile(parsed);
         setStatusMessage({
           type: 'success',
-          text: `File "${file.name}" valid! Siap diterapkan ke keyboard.`,
+          text: `File "${file.name}" is valid! Ready to apply to keyboard.`,
         });
       } catch (err: any) {
         setImportedProfile(null);
         setStatusMessage({
           type: 'error',
-          text: `File profil tidak valid: ${err.message}`,
+          text: `Invalid profile file: ${err.message}`,
         });
       }
     };
@@ -82,7 +82,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
       if (res.success) {
         setStatusMessage({
           type: 'success',
-          text: `Profil "${importedProfile.name}" berhasil diterapkan dan diverifikasi ke hardware!`,
+          text: `Profile "${importedProfile.name}" successfully applied and verified on hardware!`,
         });
         setHasBackup(true);
         setImportedProfile(null);
@@ -96,7 +96,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: `Error saat apply profil: ${err.message}`,
+        text: `Error applying profile: ${err.message}`,
       });
     } finally {
       setIsApplying(false);
@@ -104,7 +104,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
   };
 
   const handleRestoreBackup = async () => {
-    if (!confirm('Kembalikan konfigurasi keyboard ke cadangan terakhir sebelum impor?')) {
+    if (!confirm('Restore keyboard configuration to the backup saved before the last import?')) {
       return;
     }
     setIsApplying(true);
@@ -115,7 +115,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
       if (res.success) {
         setStatusMessage({
           type: 'success',
-          text: 'Konfigurasi cadangan keselamatan berhasil dikembalikan ke keyboard!',
+          text: 'Safety backup configuration successfully restored to keyboard!',
         });
       } else {
         setStatusMessage({
@@ -126,7 +126,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: `Gagal mengembalikan cadangan: ${err.message}`,
+        text: `Failed to restore backup: ${err.message}`,
       });
     } finally {
       setIsApplying(false);
@@ -161,39 +161,39 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
         </div>
       )}
 
-      {/* SECTION 1: Ekspor & Impor Profil */}
+      {/* SECTION 1: Export & Import Profiles */}
       <div className="space-y-4">
         <div>
           <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase font-semibold">
             PROFILE MANAGEMENT
           </div>
-          <h2 className="text-xl font-bold text-white mt-0.5">Ekspor &amp; Impor Profil JSON</h2>
+          <h2 className="text-xl font-bold text-white mt-0.5">Export &amp; Import JSON Profiles</h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Simpan susunan keymap, shortcut FN, dan pengaturan pencahayaan RGB ke file JSON, atau pulihkan profil yang telah disimpan.
+            Save keymap layouts, FN shortcuts, and RGB lighting configurations to JSON files, or restore previously saved profiles.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Card Ekspor Profil */}
+          {/* Card Export Profile */}
           <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-zinc-700 transition-all">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
                 <Download className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Ekspor Profil Saat Ini</h3>
+                <h3 className="text-sm font-bold text-white">Export Current Profile</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Mendownload konfigurasi keymap lengkap (Base layer, FN layer, RGB, dan Sleep timer) dalam format .json yang kompatibel.
+                  Download the complete keyboard configuration (Base layer, FN layer, RGB, and Sleep timer) in a compatible .json format.
                 </p>
               </div>
 
               <div className="space-y-1.5 pt-1">
-                <label className="text-[11px] text-zinc-400 font-medium">Nama Profil:</label>
+                <label className="text-[11px] text-zinc-400 font-medium">Profile Name:</label>
                 <input
                   type="text"
                   value={exportName}
                   onChange={(e) => setExportName(e.target.value)}
-                  placeholder="Contoh: Kerja, Gaming FPS, Mac Layout"
+                  placeholder="e.g. Work, FPS Gaming, Mac Layout"
                   className="w-full px-3 py-2 rounded-lg bg-[#181818] border border-[#2a2a2a] text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors"
                 />
               </div>
@@ -204,20 +204,20 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               className="w-full py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
             >
               <Download className="w-4 h-4" />
-              Download Profil (.json)
+              Download Profile (.json)
             </button>
           </div>
 
-          {/* Card Impor Profil */}
+          {/* Card Import Profile */}
           <div className="bg-[#111111] border border-[#222222] rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-zinc-700 transition-all">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                 <Upload className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Impor Profil dari File</h3>
+                <h3 className="text-sm font-bold text-white">Import Profile from File</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Upload file profil .json untuk melihat pratinjau dan menerapkannya langsung ke keyboard.
+                  Upload a .json profile file to preview layout details and apply directly to keyboard memory.
                 </p>
               </div>
 
@@ -254,7 +254,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
                   className="w-full py-4 px-3 border border-dashed border-[#333333] hover:border-zinc-500 rounded-xl text-center text-xs text-zinc-400 hover:text-white cursor-pointer transition-colors flex flex-col items-center gap-1.5"
                 >
                   <Upload className="w-4 h-4 text-zinc-500" />
-                  <span>Pilih file .json dari komputer</span>
+                  <span>Select .json file from computer</span>
                 </button>
               )}
             </div>
@@ -269,12 +269,12 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
                   {isApplying ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Menerapkan ke Keyboard...
+                      Applying to Keyboard...
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      Terapkan ke Keyboard
+                      Apply to Keyboard
                     </>
                   )}
                 </button>
@@ -286,7 +286,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
                   disabled={isApplying}
                   className="py-2.5 px-3 rounded-xl bg-[#1c1c1c] hover:bg-[#252525] border border-[#2e2e2e] text-xs text-zinc-300 transition-colors cursor-pointer"
                 >
-                  Batal
+                  Cancel
                 </button>
               </div>
             ) : (
@@ -296,7 +296,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
                 className="w-full py-2.5 px-4 rounded-xl bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-zinc-400" />
-                Buka File Profil (.json)
+                Open Profile File (.json)
               </button>
             )}
           </div>
@@ -307,9 +307,9 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
           <div className="flex items-start sm:items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="font-bold text-white">Cadangan Otomatis Sebelum Impor: </span>
+              <span className="font-bold text-white">Automatic Pre-Import Backup: </span>
               <span className="text-zinc-400">
-                Sistem otomatis membuat backup sebelum impor diterapkan ke keyboard, sehingga Anda dapat kembali ke konfigurasi sebelumnya kapan saja.
+                The system automatically creates a safety snapshot before any imported layout is written to hardware memory, allowing you to restore your previous configuration at any time.
               </span>
             </div>
           </div>
@@ -320,7 +320,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               className="shrink-0 py-1.5 px-3 rounded-lg bg-[#1a1a1a] hover:bg-[#222222] border border-[#303030] text-xs font-semibold text-zinc-200 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              Kembalikan Cadangan Terakhir
+              Restore Last Backup
             </button>
           )}
         </div>
@@ -332,8 +332,8 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
           <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase font-semibold">
             BUILT-IN PRESETS
           </div>
-          <h2 className="text-xl font-bold text-white mt-0.5">Preset Layout Siap Pakai</h2>
-          <p className="text-xs text-zinc-400 mt-1">Preset 1-klik untuk pemetaan keyboard standar dan sistem operasi.</p>
+          <h2 className="text-xl font-bold text-white mt-0.5">Ready-to-Use Layout Presets</h2>
+          <p className="text-xs text-zinc-400 mt-1">1-click presets for standard operating systems and gaming layouts.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -346,7 +346,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               <div>
                 <h3 className="text-sm font-bold text-white">Default Factory ANSI</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Layout standar QWERTY sesuai bawaan pabrik Leobog Hi75c Pro.
+                  Standard QWERTY layout matching Leobog Hi75c Pro factory defaults.
                 </p>
               </div>
             </div>
@@ -355,7 +355,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               className="w-full py-2 px-3 rounded-xl bg-[#171b26] hover:bg-[#202636] border border-[#283042] text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <Check className="w-3.5 h-3.5 text-cyan-400" />
-              Terapkan Default Pabrik
+              Apply Factory Default
             </button>
           </div>
 
@@ -366,9 +366,9 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
                 <Apple className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Mac OS Modifier Layout</h3>
+                <h3 className="text-sm font-bold text-white">macOS Modifier Layout</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Menukar tombol Windows (GUI) dan Alt untuk posisi Command ⌘ dan Option ⌥ di macOS.
+                  Swaps Windows (GUI) and Alt keys to match Command ⌘ and Option ⌥ layout on macOS.
                 </p>
               </div>
             </div>
@@ -377,7 +377,7 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               className="w-full py-2 px-3 rounded-xl bg-[#171b26] hover:bg-[#202636] border border-[#283042] text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-400" />
-              Tukar Win &amp; Alt (macOS)
+              Swap Win &amp; Alt (macOS)
             </button>
           </div>
 
@@ -390,12 +390,12 @@ export const Profiles: React.FC<ProfilesProps> = ({ onSwapWinAlt, onResetAll }) 
               <div>
                 <h3 className="text-sm font-bold text-white">Gaming WASD &amp; Win Lock</h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Kunci tombol Windows selama sesi game untuk mencegah terminimalisasi yang tidak disengaja.
+                  Lock the Windows key during gaming sessions to prevent accidental desktop minimizes.
                 </p>
               </div>
             </div>
             <button
-              onClick={() => alert('Windows Key Lock toggle aktif!')}
+              onClick={() => alert('Windows Key Lock toggle is active!')}
               className="w-full py-2 px-3 rounded-xl bg-[#171b26] hover:bg-[#202636] border border-[#283042] text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <Check className="w-3.5 h-3.5 text-emerald-400" />

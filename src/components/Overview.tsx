@@ -65,7 +65,7 @@ export const Overview: React.FC<OverviewProps> = ({
           {/* Centered Keyboard View */}
           <div className="relative z-10 my-auto py-2 sm:py-4">
             <div className="md:hidden flex items-center justify-center gap-1.5 text-[10px] font-mono text-zinc-400 bg-[#161616] py-1 px-3 rounded-lg border border-[#262626] mb-2 mx-auto w-fit">
-              <span>↔️ Geser untuk melihat tombol F9-F12, Knob &amp; Nav</span>
+              <span>↔️ Scroll to view F9-F12, Knob &amp; Navigation keys</span>
             </div>
             {keyboardElement}
           </div>

@@ -135,7 +135,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
     if (selectedUsage === null) return;
     if (selectedMatrixIdx === 59 && selectedUsage !== 0xFF) {
       const ok = confirm(
-        'PERINGATAN KEAMANAN: Anda sedang mengubah fungsi tombol FN fisik (Matrix #59).\n\nJika fungsi FN dihapus dari layer utama, Anda tidak akan bisa mengakses shortcut FN hardware (seperti kontrol RGB, pairing Bluetooth/2.4G, Win Lock, dll).\n\nApakah Anda yakin ingin tetap mengubah tombol FN ini?'
+        'SECURITY WARNING: You are modifying the primary physical FN key (Matrix #59).\n\nIf the FN function is removed from the base layer, you will lose access to hardware FN shortcuts (such as RGB lighting controls, Bluetooth/2.4G pairing, Win Lock, etc.).\n\nAre you sure you want to remap this FN key?'
       );
       if (!ok) return;
     }
@@ -145,7 +145,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
   const handleApplyShortcut = () => {
     if (selectedMatrixIdx === 59) {
       const ok = confirm(
-        'PERINGATAN KEAMANAN: Anda sedang mengubah fungsi tombol FN fisik (Matrix #59) menjadi shortcut kombinasi.\n\nJika fungsi FN dihapus dari layer utama, Anda tidak akan bisa mengakses shortcut FN hardware.\n\nApakah Anda yakin ingin tetap mengubah tombol FN ini?'
+        'SECURITY WARNING: You are modifying the primary physical FN key (Matrix #59) into a shortcut combination.\n\nIf the FN function is removed from the base layer, you will lose access to hardware FN shortcuts.\n\nAre you sure you want to remap this FN key?'
       );
       if (!ok) return;
     }
@@ -156,7 +156,7 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
   const handleApplyRawPreset = (rawBytes: [number, number, number, number]) => {
     if (selectedMatrixIdx === 59) {
       const ok = confirm(
-        'PERINGATAN KEAMANAN: Anda sedang mengubah fungsi tombol FN fisik (Matrix #59).\n\nApakah Anda yakin ingin tetap mengubah tombol FN ini?'
+        'SECURITY WARNING: You are modifying the primary physical FN key (Matrix #59).\n\nAre you sure you want to remap this FN key?'
       );
       if (!ok) return;
     }
@@ -236,9 +236,9 @@ export const KeyRemapPanel: React.FC<KeyRemapPanelProps> = ({
         <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-600/40 flex items-center gap-2.5 text-xs">
           <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400" />
           <div>
-            <span className="font-bold text-amber-300">Perhatian Khusus Tombol FN (Matrix #59):</span>
+            <span className="font-bold text-amber-300">Special Notice for Primary FN Key (Matrix #59):</span>
             <span className="text-[11px] text-amber-200/90 block">
-              Tombol ini adalah tombol FN hardware utama keyboard. Disarankan untuk membiarkannya tetap sebagai fungsi FN (0xFF) agar kombinasi tombol layer kedua (RGB, wireless pairing, volume) tetap dapat digunakan.
+              This is the hardware FN key. It is strongly recommended to keep it as FN function (0xFF) so that secondary layer shortcuts (RGB controls, wireless pairing, media keys) remain accessible.
             </span>
           </div>
         </div>

@@ -133,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Device Asleep Notice */}
         {isConnected && isAsleep && (
           <div
-            title="Keyboard sedang tidur untuk hemat daya. Tekan tombol apapun pada keyboard untuk membangunkan."
+            title="Keyboard is asleep to save power. Press any key on the keyboard to wake it up."
             className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-800/80 text-amber-300 text-xs font-semibold flex items-center gap-1.5"
           >
             <Moon className="w-3.5 h-3.5" />
@@ -153,8 +153,8 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
             title={
               isMacLayout
-                ? 'Layout aktif: macOS (Klik untuk beralih ke Windows)'
-                : 'Layout aktif: Windows (Klik untuk beralih ke macOS)'
+                ? 'Active layout: macOS (Click to switch to Windows)'
+                : 'Active layout: Windows (Click to switch to macOS)'
             }
           >
             {isMacLayout ? (
