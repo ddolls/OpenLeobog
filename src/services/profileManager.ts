@@ -219,8 +219,9 @@ class ProfileManager {
     this.saveSafetyBackup();
     webhid.log(`[Profile] Applying profile "${profile.name}" to keyboard...`);
 
-    return await webhid.runExclusive(async () => {
-      try {
+    try {
+      // Step 1: Write keymap base & fn tables inside runExclusive to prevent USB collision
+      await webhid.runExclusive(async () => {
         // Read current base and FN tables
         const currentBase = await webhid.readBaseTable();
         const currentFn = await webhid.readFnTable();
@@ -274,40 +275,40 @@ class ProfileManager {
         await webhid.writeBaseTable(newBase);
         await webhid.writeFnTable(newFn);
         await webhid.readMatrixData();
+      });
 
-        // Apply lighting & global settings if available
-        if (profile.lighting) {
-          const rgbState = rgbService.getState();
-          const effectId = profile.lighting.effectId ?? rgbState.effectId;
-          const brightness = profile.lighting.brightness ?? rgbState.brightness;
-          const speed = profile.lighting.speed ?? rgbState.speed;
-          const colorHex = profile.lighting.colorHex ?? rgbState.staticColor;
-          await rgbService.setHardwareEffect(effectId, brightness, speed, false, colorHex);
+      // Step 2: Apply lighting & global settings sequentially (each service manages its own exclusive queue)
+      if (profile.lighting) {
+        const rgbState = rgbService.getState();
+        const effectId = profile.lighting.effectId ?? rgbState.effectId;
+        const brightness = profile.lighting.brightness ?? rgbState.brightness;
+        const speed = profile.lighting.speed ?? rgbState.speed;
+        const colorHex = profile.lighting.colorHex ?? rgbState.staticColor;
+        await rgbService.setHardwareEffect(effectId, brightness, speed, false, colorHex);
 
-          if (profile.lighting.perKeyColors && Object.keys(profile.lighting.perKeyColors).length > 0) {
-            await rgbService.applyPerKeyPlanar(profile.lighting.perKeyColors);
-          }
-
-          if (profile.lighting.sleepSeconds !== undefined) {
-            hardwareSettingsService.updateSettings({
-              sleepTimeoutSeconds: profile.lighting.sleepSeconds,
-              sleepEnabled: profile.lighting.sleepSeconds > 0,
-            });
-            try {
-              await hardwareSettingsService.applyToHardware();
-            } catch (hwErr: any) {
-              webhid.log(`[Profile] Warning: could not apply sleep settings to hardware: ${hwErr.message}`);
-            }
-          }
+        if (profile.lighting.perKeyColors && Object.keys(profile.lighting.perKeyColors).length > 0) {
+          await rgbService.applyPerKeyPlanar(profile.lighting.perKeyColors);
         }
 
-        webhid.log(`[Profile] Profile "${profile.name}" applied and verified successfully!`);
-        return { success: true, message: `Profile "${profile.name}" applied successfully!` };
-      } catch (err: any) {
-        webhid.log(`[Profile] Error applying profile: ${err.message}`);
-        return { success: false, message: `Failed to apply profile: ${err.message}` };
+        if (profile.lighting.sleepSeconds !== undefined) {
+          hardwareSettingsService.updateSettings({
+            sleepTimeoutSeconds: profile.lighting.sleepSeconds,
+            sleepEnabled: profile.lighting.sleepSeconds > 0,
+          });
+          try {
+            await hardwareSettingsService.applyToHardware();
+          } catch (hwErr: any) {
+            webhid.log(`[Profile] Warning: could not apply sleep settings to hardware: ${hwErr.message}`);
+          }
+        }
       }
-    });
+
+      webhid.log(`[Profile] Profile "${profile.name}" applied and verified successfully!`);
+      return { success: true, message: `Profile "${profile.name}" applied successfully!` };
+    } catch (err: any) {
+      webhid.log(`[Profile] Error applying profile: ${err.message}`);
+      return { success: false, message: `Failed to apply profile: ${err.message}` };
+    }
   }
 
   // Restore safety backup from localStorage

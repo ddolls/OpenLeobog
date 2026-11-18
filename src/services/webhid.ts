@@ -165,7 +165,12 @@ class WebHIDController {
     const currentTail = this.queuePromise;
     this.queuePromise = currentTail.then(() => waitPromise).catch(() => waitPromise);
     try {
-      await currentTail;
+      let timer: any;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Hardware queue lock timed out')), 10000);
+      });
+      await Promise.race([currentTail, timeoutPromise]);
+      clearTimeout(timer);
       return await fn();
     } finally {
       release!();
