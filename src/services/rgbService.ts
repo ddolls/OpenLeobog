@@ -955,16 +955,13 @@ class RgbControllerService {
       effectId: 18, // Mode 18 (GaoshouIndex = 18 in KB.ini / OemDrv.exe for Hi75C Pro)
       isDirectStreaming: false,
       activeSoftwareAnim: null,
+      colorful: true,
     });
 
     if (!this.device || !this.device.opened) {
       webhid.log(`[RGB Offline] Per-key colors saved (${Object.keys(perKeyColors).length} keys).`);
       return true;
     }
-
-    const baseHex = this.state.staticColor || '#1AE5FF';
-    const baseRgb = hexToRgb(baseHex);
-    const hasFullLayout = Object.keys(perKeyColors).length >= 50;
 
     const wirelessClient = webhid.getWirelessClient();
     if (wirelessClient) {
@@ -973,21 +970,21 @@ class RgbControllerService {
           webhid.log(`[RGB 2.4G] Applying Per-Key Custom RGB (${Object.keys(perKeyColors).length} keys mapped)...`);
 
           // 1. Build 378-byte planar RGB map: R[0..125], G[126..251], B[252..377]
-          // Matches OemDrv.exe 0x493bb8 layout exactly
+          // Matches OemDrv.exe 0x493bb8 layout exactly.
+          // Unpainted keys (or keys set to #000000) are strictly turned off (r=0, g=0, b=0).
           const rgb378 = new Uint8Array(378);
 
           for (let i = 0; i < 126; i++) {
             const hex = perKeyColors[i];
-            if (hex !== undefined) {
+            if (hex && hex !== '#000000') {
               const c = hexToRgb(hex);
               rgb378[i] = c.r;
               rgb378[126 + i] = c.g;
               rgb378[252 + i] = c.b;
-            } else if (!hasFullLayout) {
-              // If only specific keys were painted, preserve ambient base color for all other keys
-              rgb378[i] = baseRgb.r;
-              rgb378[126 + i] = baseRgb.g;
-              rgb378[252 + i] = baseRgb.b;
+            } else {
+              rgb378[i] = 0;
+              rgb378[126 + i] = 0;
+              rgb378[252 + i] = 0;
             }
           }
 
@@ -1079,7 +1076,7 @@ class RgbControllerService {
           report8[3] = 0x01;
           for (let i = 0; i < 126; i++) {
             const hex = perKeyColors[i];
-            const rgb = hex !== undefined ? hexToRgb(hex) : (!hasFullLayout ? baseRgb : { r: 0, g: 0, b: 0 });
+            const rgb = hex && hex !== '#000000' ? hexToRgb(hex) : { r: 0, g: 0, b: 0 };
             report8[4 + i] = rgb.r;
             report8[4 + 126 + i] = rgb.g;
             report8[4 + 252 + i] = rgb.b;
@@ -1109,7 +1106,7 @@ class RgbControllerService {
 
         for (let i = 0; i < 126; i++) {
           const hex = perKeyColors[i];
-          const rgb = hex !== undefined ? hexToRgb(hex) : (!hasFullLayout ? baseRgb : { r: 0, g: 0, b: 0 });
+          const rgb = hex && hex !== '#000000' ? hexToRgb(hex) : { r: 0, g: 0, b: 0 };
           pkt[planeR + i] = rgb.r;
           pkt[planeG + i] = rgb.g;
           pkt[planeB + i] = rgb.b;

@@ -132,11 +132,13 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
               }
               const comboLabel = record && record.bytes ? formatComboLabel(record.bytes) : displayLabel;
               const currentUsageLabel = isModified ? comboLabel : (currentUsage !== null ? getUsageLabel(currentUsage) : displayLabel);
-              const keyRgb =
-                rgbState.perKeyColors[keyDef.matrixIdx] ||
-                ((!rgbState.colorful || rgbState.effectId === 1) && rgbState.effectId !== 0
-                  ? rgbState.staticColor
-                  : null);
+              const isPerKeyMode = rgbState.customMode || rgbState.effectId === 18;
+              const keyRgb = isPerKeyMode
+                ? (rgbState.perKeyColors[keyDef.matrixIdx] || null)
+                : (rgbState.perKeyColors[keyDef.matrixIdx] ||
+                   ((!rgbState.colorful || rgbState.effectId === 1) && rgbState.effectId !== 0
+                     ? rgbState.staticColor
+                     : null));
               const hasRgbGlow = Boolean(keyRgb && keyRgb !== '#000000');
 
               return (
