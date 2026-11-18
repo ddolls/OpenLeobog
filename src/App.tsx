@@ -100,6 +100,13 @@ export function App() {
     }
   }, [userMode, activeTab]);
 
+  // Redirect to overview if on profiles tab while connected in wired mode (dongle profiles cannot be applied in wired mode)
+  useEffect(() => {
+    if (hidState.isConnected && !hidState.isWireless && activeTab === 'profiles') {
+      setActiveTab('overview');
+    }
+  }, [hidState.isConnected, hidState.isWireless, activeTab]);
+
   const handleConnect = async () => {
     await webhid.connect();
   };
@@ -251,6 +258,7 @@ export function App() {
         userMode={userMode === 'dev' ? 'dev' : 'guest'}
         onOpenModeModal={() => setIsModeModalOpen(true)}
         onOpenVersionModal={() => setIsVersionModalOpen(true)}
+        isWireless={hidState.isWireless}
       />
 
       {/* Main Right Content Panel */}
@@ -322,7 +330,7 @@ export function App() {
             />
           )}
 
-          {activeTab === 'profiles' && (
+          {activeTab === 'profiles' && (!hidState.isConnected || hidState.isWireless) && (
             <Profiles
               onSwapWinAlt={isMacLayout ? handleApplyWindowsLayout : handleApplyMacLayout}
               onResetAll={handleResetAll}

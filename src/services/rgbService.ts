@@ -38,16 +38,27 @@ export function rgbToHex(r: number, g: number, b: number): string {
 // Modes that support custom single-color in firmware
 const COLOR_CAPABLE_MODES = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13];
 
-// Hardware preset palette colors in SinoWealth ROM (indices 0..6, index 7 = Multicolor)
+// Hardware preset palette colors in Leobog Hi75c Pro keyboard MCU ROM slots (Dual-mode: 2.4G & Wired USB)
+// Reverse-engineered from official LEOBOG ONE OemDrv.exe at 0x927B8-0x92890:
+// Slot 0: Red (#FF0000 / #FF2B2B)
+// Slot 1: Green (#00FF00 / #2EE65C)
+// Slot 2: Blue (#0000FF / #2E6BFF)
+// Slot 3: Yellow (#FFFF00 / #FFE11A)
+// Slot 4: Purple (#FF00FF / #B833FF)
+// Slot 5: Cyan (#00FFFF / #1AE5FF)
+// Slot 6: White (#FFFFFF)
+// Slot 7: Multicolor / Rainbow
 export const HW_COLOR_PRESETS = [
-  { index: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
-  { index: 1, label: 'Orange', hex: '#FF8C1A', r: 255, g: 140, b: 26 },
-  { index: 2, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
-  { index: 3, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
-  { index: 4, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
-  { index: 5, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
-  { index: 6, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
+  { index: 0, slot: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
+  { index: 1, slot: 1, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
+  { index: 2, slot: 2, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
+  { index: 3, slot: 3, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
+  { index: 4, slot: 4, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
+  { index: 5, slot: 5, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
+  { index: 6, slot: 6, label: 'White', hex: '#FFFFFF', r: 255, g: 255, b: 255 },
 ];
+
+export const WIRED_HW_COLOR_PRESETS = HW_COLOR_PRESETS;
 
 export const PALETTE_EFFECT_COUNT = 23;
 export const PALETTE_COLORS_PER_EFFECT = 7;
@@ -122,52 +133,9 @@ export function createDefaultPalette(): PaletteData {
   return palette;
 }
 
-export function findClosestHwColorIndex(hex: string): number {
+export function findHwColorSlot(hex: string): number {
   const clean = hex.startsWith('#') ? hex.toUpperCase() : ('#' + hex).toUpperCase();
   const exact = HW_COLOR_PRESETS.find((p) => p.hex.toUpperCase() === clean);
-  if (exact) {
-    return exact.index;
-  }
-  const { r, g, b } = hexToRgb(hex);
-
-  let bestIdx = 4; // Default to Cyan (#1AE5FF)
-  let bestDist = Infinity;
-  for (const p of HW_COLOR_PRESETS) {
-    const dr = r - p.r;
-    const dg = g - p.g;
-    const db = b - p.b;
-    const dist = dr * dr + dg * dg + db * db;
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestIdx = p.index;
-    }
-  }
-  return bestIdx;
-}
-
-// Hardware preset colors for Wired USB Mode (SinoWealth MCU ROM slots)
-// Reverse-engineered from official LEOBOG ONE OemDrv.exe at 0x927B8-0x92890:
-// Slot 0: Red (#FF0000 / #FF2B2B)
-// Slot 1: Green (#00FF00 / #2EE65C)
-// Slot 2: Blue (#0000FF / #2E6BFF)
-// Slot 3: Yellow (#FFFF00 / #FFE11A)
-// Slot 4: Purple (#FF00FF / #B833FF)
-// Slot 5: Cyan (#00FFFF / #1AE5FF)
-// Slot 6: White (#FFFFFF)
-// Slot 7: Multicolor / Rainbow
-export const WIRED_HW_COLOR_PRESETS = [
-  { slot: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
-  { slot: 1, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
-  { slot: 2, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
-  { slot: 3, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
-  { slot: 4, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
-  { slot: 5, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
-  { slot: 6, label: 'White', hex: '#FFFFFF', r: 255, g: 255, b: 255 },
-];
-
-export function findWiredHwColorSlot(hex: string): number {
-  const clean = hex.startsWith('#') ? hex.toUpperCase() : ('#' + hex).toUpperCase();
-  const exact = WIRED_HW_COLOR_PRESETS.find((p) => p.hex.toUpperCase() === clean);
   if (exact) {
     return exact.slot;
   }
@@ -182,7 +150,7 @@ export function findWiredHwColorSlot(hex: string): number {
   const { r, g, b } = hexToRgb(hex);
   let bestSlot = 5; // Default to Cyan
   let bestDist = Infinity;
-  for (const p of WIRED_HW_COLOR_PRESETS) {
+  for (const p of HW_COLOR_PRESETS) {
     const dr = r - p.r;
     const dg = g - p.g;
     const db = b - p.b;
@@ -194,6 +162,9 @@ export function findWiredHwColorSlot(hex: string): number {
   }
   return bestSlot;
 }
+
+export const findClosestHwColorIndex = findHwColorSlot;
+export const findWiredHwColorSlot = findHwColorSlot;
 
 class RgbControllerService {
   private device: any = null;
@@ -411,14 +382,8 @@ class RgbControllerService {
 
           let staticColor = this.state.staticColor;
           if (!colorful && colorNibble < 7) {
-            const palIdx = Math.max(0, Math.min(22, effectId - 1));
-            const palRgb = this.palette.effects[palIdx]?.[colorNibble];
-            if (palRgb && (palRgb.r !== 0 || palRgb.g !== 0 || palRgb.b !== 0)) {
-              staticColor = rgbToHex(palRgb.r, palRgb.g, palRgb.b);
-            } else {
-              const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
-              if (hwPreset) staticColor = hwPreset.hex;
-            }
+            const hwPreset = HW_COLOR_PRESETS.find((p) => p.slot === colorNibble);
+            if (hwPreset) staticColor = hwPreset.hex;
           }
 
           const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
@@ -512,14 +477,8 @@ class RgbControllerService {
           colorful = colorNibble === 0x07;
 
           if (!colorful && colorNibble < 7) {
-            const palIdx = Math.max(0, Math.min(22, effectId - 1));
-            const palRgb = this.palette.effects[palIdx]?.[colorNibble];
-            if (palRgb && (palRgb.r !== 0 || palRgb.g !== 0 || palRgb.b !== 0)) {
-              staticColor = rgbToHex(palRgb.r, palRgb.g, palRgb.b);
-            } else {
-              const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
-              if (hwPreset) staticColor = hwPreset.hex;
-            }
+            const hwPreset = HW_COLOR_PRESETS.find((p) => p.slot === colorNibble);
+            if (hwPreset) staticColor = hwPreset.hex;
           }
         }
 
@@ -652,26 +611,6 @@ class RgbControllerService {
               await wirelessClient.writeRgbMap(rgb378);
             } catch {
               // Ignore planar write retry
-            }
-          }
-
-          // Synchronize palette for custom / single-color modes (0-indexed effect row: palIdx = normalizedEffectId - 1)
-          const palIdx = Math.max(0, Math.min(22, normalizedEffectId - 1));
-          if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23) {
-            const targetRgb = hexToRgb(normalizedColor);
-            if (!this.palette.effects[palIdx]) {
-              this.palette.effects[palIdx] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
-            }
-            const curr = this.palette.effects[palIdx][colorIdx];
-            if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
-              this.palette.effects[palIdx][colorIdx] = targetRgb;
-              try {
-                await wirelessClient.writePalette(encodePalette(this.palette));
-                this.paletteSynced = true;
-                webhid.log(`[RGB 2.4G] Palette updated for effect #${normalizedEffectId} (row ${palIdx}) slot ${colorIdx}`);
-              } catch (palErr: any) {
-                webhid.log(`[RGB 2.4G Palette Error] ${palErr.message}`);
-              }
             }
           }
 

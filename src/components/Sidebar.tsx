@@ -9,6 +9,7 @@ interface SidebarProps {
   userMode: 'guest' | 'dev';
   onOpenModeModal?: () => void;
   onOpenVersionModal?: () => void;
+  isWireless?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -19,13 +20,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onConnect,
   userMode,
   onOpenVersionModal,
+  isWireless,
 }) => {
+  // Hide Profiles menu if keyboard is connected in wired USB mode (dongle profiles cannot be applied in wired mode)
+  const showProfiles = isConnected ? !!isWireless : true;
+
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, mobileLabel: 'Home' },
     { id: 'typing-test', label: 'Typing Test', icon: Timer, mobileLabel: 'Typing' },
     { id: 'rgb', label: 'RGB Lighting', icon: Palette, mobileLabel: 'RGB' },
     { id: 'settings', label: 'Hardware Settings', icon: Sliders, mobileLabel: 'Settings' },
-    { id: 'profiles', label: 'Profiles & Layouts', icon: Layers, mobileLabel: 'Profiles' },
+    ...(showProfiles
+      ? [{ id: 'profiles', label: 'Profiles & Layouts', icon: Layers, mobileLabel: 'Profiles' }]
+      : []),
     { id: 'switch-tester', label: 'Switch & PRate Test', icon: Activity, mobileLabel: 'Tester' },
     ...(userMode === 'dev'
       ? [{ id: 'backup', label: 'Backup & Recovery', icon: ShieldAlert, mobileLabel: 'Backup' }]
