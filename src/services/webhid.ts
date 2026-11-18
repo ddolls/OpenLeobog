@@ -153,6 +153,7 @@ class WebHIDController {
   private wirelessClient: WirelessProtocolClient | null = null;
   private onBatterySynced?: (percent: number, charging: boolean) => void;
   private onConfigSynced?: (config: Uint8Array) => void;
+  private onWirelessConnect?: () => void;
   private queuePromise: Promise<void> = Promise.resolve();
   private isConnecting: boolean = false;
 
@@ -201,9 +202,11 @@ class WebHIDController {
   public setSyncCallbacks(callbacks: {
     onBattery?: (percent: number, charging: boolean) => void;
     onConfig?: (config: Uint8Array) => void;
+    onWirelessConnect?: () => void;
   }) {
     if (callbacks.onBattery) this.onBatterySynced = callbacks.onBattery;
     if (callbacks.onConfig) this.onConfigSynced = callbacks.onConfig;
+    if (callbacks.onWirelessConnect) this.onWirelessConnect = callbacks.onWirelessConnect;
   }
 
   public getWirelessClient(): WirelessProtocolClient | null {
@@ -410,6 +413,14 @@ class WebHIDController {
           isWireless,
           isAsleep: false,
         });
+
+        if (isWireless && this.onWirelessConnect) {
+          try {
+            this.onWirelessConnect();
+          } catch (e) {
+            console.error('[WebHID] onWirelessConnect error:', e);
+          }
+        }
 
         // Directly execute internal sync within this exclusive block
         await this.internalSyncAllFromHardware();

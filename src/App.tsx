@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { KeyboardGrid } from './components/KeyboardGrid';
@@ -53,32 +53,52 @@ export function App() {
   const [isWirelessWarningOpen, setIsWirelessWarningOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [selectedMatrixIdx, setSelectedMatrixIdx] = useState<number | null>(null);
-  const prevConnectedRef = useRef<boolean>(false);
   
   // State from webhid service
-  const [hidState, setHidState] = useState<WebHIDState>(() => ({
-    isConnected: false,
-    deviceName: 'LEOBOG Hi75c Pro',
-    vendorId: '0x258A',
-    productId: '0x010C',
-    matrixData: new Uint8Array([...PRISTINE_STAGE5_MATRIX[0], ...PRISTINE_STAGE5_MATRIX[1]]),
-    records: getInitialRecords(),
-    modifiedCount: 0,
-    logs: ['[Init] Leobog Hi75 C Pro WebHID Configurator ready.'],
-  }));
+  const [hidState, setHidState] = useState<WebHIDState>(() => {
+    const ws = webhid.getState();
+    return {
+      isConnected: ws.isConnected,
+      deviceName: ws.deviceName || 'LEOBOG Hi75c Pro',
+      vendorId: ws.vendorId || '0x258A',
+      productId: ws.productId || '0x010C',
+      matrixData: ws.matrixData || new Uint8Array([...PRISTINE_STAGE5_MATRIX[0], ...PRISTINE_STAGE5_MATRIX[1]]),
+      records: ws.records || getInitialRecords(),
+      modifiedCount: ws.modifiedCount || 0,
+      logs: ws.logs.length > 0 ? ws.logs : ['[Init] Leobog Hi75 C Pro WebHID Configurator ready.'],
+      isWireless: ws.isWireless,
+      isAsleep: ws.isAsleep,
+      isSyncing: ws.isSyncing,
+    };
+  });
 
   // Subscribe to webhid controller updates & register sync callbacks
   useEffect(() => {
     webhid.setSyncCallbacks({
       onBattery: (percent, charging) => batteryService.updateBatteryPercentage(percent, charging),
       onConfig: (cfg) => hardwareSettingsService.syncFromHardwareConfig(cfg),
+      onWirelessConnect: () => {
+        setIsWirelessWarningOpen(true);
+      },
     });
 
+    // Check if already connected via 2.4G dongle on mount
+    if (webhid.getState().isConnected && webhid.getState().isWireless) {
+      setIsWirelessWarningOpen(true);
+    }
+
     const unsubscribe = webhid.subscribe((update) => {
-      setHidState((prev) => ({
-        ...prev,
-        ...update,
-      }));
+      setHidState((prev) => {
+        const next = {
+          ...prev,
+          ...update,
+        };
+        // Trigger popup when connecting via 2.4G dongle only
+        if (!prev.isConnected && next.isConnected && next.isWireless) {
+          setIsWirelessWarningOpen(true);
+        }
+        return next;
+      });
       if (update.isConnected === false) {
         inputManager.detachWebHIDDevice();
         rgbService.detachDevice();
@@ -110,22 +130,11 @@ export function App() {
     }
   }, [hidState.isConnected, hidState.isWireless, activeTab]);
 
-  // Show warning popup when keyboard connects in 2.4GHz wireless dongle mode
-  useEffect(() => {
-    const isNowConnected = hidState.isConnected;
-    const wasConnected = prevConnectedRef.current;
-    prevConnectedRef.current = isNowConnected;
-
-    if (!wasConnected && isNowConnected && hidState.isWireless) {
-      const isDismissed = localStorage.getItem('leobog_dismiss_wireless_warning') === 'true';
-      if (!isDismissed) {
-        setIsWirelessWarningOpen(true);
-      }
-    }
-  }, [hidState.isConnected, hidState.isWireless]);
-
   const handleConnect = async () => {
-    await webhid.connect();
+    const success = await webhid.connect();
+    if (success && webhid.getState().isWireless) {
+      setIsWirelessWarningOpen(true);
+    }
   };
 
   const handleApplyRemap = async (matrixIdx: number, newUsage: number) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Radio, AlertTriangle, Cpu, X, CheckCircle2 } from 'lucide-react';
 
 interface WirelessWarningModalProps {
@@ -10,33 +10,24 @@ export const WirelessWarningModal: React.FC<WirelessWarningModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [dontShowAgain, setDontShowAgain] = useState<boolean>(false);
-
-  const handleDismiss = React.useCallback(() => {
-    if (dontShowAgain) {
-      localStorage.setItem('leobog_dismiss_wireless_warning', 'true');
-    }
-    onClose();
-  }, [dontShowAgain, onClose]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleDismiss();
+        onClose();
       }
     };
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleDismiss]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div
-      onClick={handleDismiss}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -69,7 +60,7 @@ export const WirelessWarningModal: React.FC<WirelessWarningModalProps> = ({
 
           <button
             type="button"
-            onClick={handleDismiss}
+            onClick={onClose}
             className="text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer"
             aria-label="Close modal"
           >
@@ -119,21 +110,16 @@ export const WirelessWarningModal: React.FC<WirelessWarningModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 border-t border-[#1c1c1c] relative z-10">
-          <label className="flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-900 text-cyan-500 focus:ring-0 cursor-pointer accent-cyan-500"
-            />
-            <span>Don't show this warning again</span>
-          </label>
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#1c1c1c] relative z-10">
+          <div className="text-[11px] font-mono text-zinc-500 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>SRAM Mode • Non-Persistent</span>
+          </div>
 
           <button
             type="button"
-            onClick={handleDismiss}
-            className="w-full sm:w-auto px-5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>I Understand</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-black" />
