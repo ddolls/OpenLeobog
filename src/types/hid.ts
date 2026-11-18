@@ -615,12 +615,12 @@ export const DEFAULT_RGB_STATE: RgbConfigState = {
 };
 
 export const COLOR_PRESETS = [
-  { index: 0, label: 'Red', hex: '#ff2b2b' },
-  { index: 1, label: 'Green', hex: '#2ee65c' },
-  { index: 2, label: 'Blue', hex: '#2e6bff' },
-  { index: 3, label: 'Yellow', hex: '#ffe11a' },
-  { index: 4, label: 'Purple', hex: '#b833ff' },
-  { index: 5, label: 'Cyan', hex: '#1ae5ff' },
-  { index: 6, label: 'White', hex: '#ffffff' },
+  { index: 0, label: 'Red', hex: '#FF0000' },
+  { index: 1, label: 'Green', hex: '#00FF00' },
+  { index: 2, label: 'Blue', hex: '#0000FF' },
+  { index: 3, label: 'Yellow', hex: '#FFFF00' },
+  { index: 4, label: 'Purple', hex: '#FF00FF' },
+  { index: 5, label: 'Cyan', hex: '#00FFFF' },
+  { index: 6, label: 'White', hex: '#FFFFFF' },
 ];
 

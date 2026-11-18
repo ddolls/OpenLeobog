@@ -49,12 +49,12 @@ const COLOR_CAPABLE_MODES = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13];
 // Slot 6: White (#FFFFFF)
 // Slot 7: Multicolor / Rainbow
 export const HW_COLOR_PRESETS = [
-  { index: 0, slot: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
-  { index: 1, slot: 1, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
-  { index: 2, slot: 2, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
-  { index: 3, slot: 3, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
-  { index: 4, slot: 4, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
-  { index: 5, slot: 5, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
+  { index: 0, slot: 0, label: 'Red', hex: '#FF0000', r: 255, g: 0, b: 0 },
+  { index: 1, slot: 1, label: 'Green', hex: '#00FF00', r: 0, g: 255, b: 0 },
+  { index: 2, slot: 2, label: 'Blue', hex: '#0000FF', r: 0, g: 0, b: 255 },
+  { index: 3, slot: 3, label: 'Yellow', hex: '#FFFF00', r: 255, g: 255, b: 0 },
+  { index: 4, slot: 4, label: 'Purple', hex: '#FF00FF', r: 255, g: 0, b: 255 },
+  { index: 5, slot: 5, label: 'Cyan', hex: '#00FFFF', r: 0, g: 255, b: 255 },
   { index: 6, slot: 6, label: 'White', hex: '#FFFFFF', r: 255, g: 255, b: 255 },
 ];
 
@@ -139,12 +139,12 @@ export function findHwColorSlot(hex: string): number {
   if (exact) {
     return exact.slot;
   }
-  if (clean === '#FF0000') return 0; // Red
-  if (clean === '#00FF00') return 1; // Green
-  if (clean === '#0000FF') return 2; // Blue
-  if (clean === '#FFFF00') return 3; // Yellow
-  if (clean === '#FF00FF') return 4; // Purple
-  if (clean === '#00FFFF') return 5; // Cyan
+  if (clean === '#FF2B2B') return 0; // Red
+  if (clean === '#2EE65C') return 1; // Green
+  if (clean === '#2E6BFF') return 2; // Blue
+  if (clean === '#FFE11A') return 3; // Yellow
+  if (clean === '#B833FF') return 4; // Purple
+  if (clean === '#1AE5FF') return 5; // Cyan
   if (clean === '#FFFFFF') return 6; // White
 
   const { r, g, b } = hexToRgb(hex);
@@ -1200,6 +1200,8 @@ class RgbControllerService {
         cfgPkt[514] = 0xa5;
 
         await this.device.sendFeatureReport(6, cfgPkt);
+        await new Promise((r) => setTimeout(r, 40));
+        await this.device.sendFeatureReport(6, pkt);
         webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
 
         this.notify({

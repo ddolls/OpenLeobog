@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { KeyboardGrid } from './components/KeyboardGrid';
@@ -51,6 +51,7 @@ export function App() {
   const [isSocialModalOpen, setIsSocialModalOpen] = useState<boolean>(false);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState<boolean>(false);
   const [isWirelessWarningOpen, setIsWirelessWarningOpen] = useState<boolean>(false);
+  const hasShownWirelessWarningRef = useRef<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [selectedMatrixIdx, setSelectedMatrixIdx] = useState<number | null>(null);
   
@@ -77,13 +78,11 @@ export function App() {
     webhid.setSyncCallbacks({
       onBattery: (percent, charging) => batteryService.updateBatteryPercentage(percent, charging),
       onConfig: (cfg) => hardwareSettingsService.syncFromHardwareConfig(cfg),
-      onWirelessConnect: () => {
-        setIsWirelessWarningOpen(true);
-      },
     });
 
     // Check if already connected via 2.4G dongle on mount
-    if (webhid.getState().isConnected && webhid.getState().isWireless) {
+    if (webhid.getState().isConnected && webhid.getState().isWireless && !hasShownWirelessWarningRef.current) {
+      hasShownWirelessWarningRef.current = true;
       setIsWirelessWarningOpen(true);
     }
 
@@ -93,13 +92,15 @@ export function App() {
           ...prev,
           ...update,
         };
-        // Trigger popup when connecting via 2.4G dongle only
-        if (!prev.isConnected && next.isConnected && next.isWireless) {
+        // Trigger popup when connecting via 2.4G dongle only (once per session)
+        if (!prev.isConnected && next.isConnected && next.isWireless && !hasShownWirelessWarningRef.current) {
+          hasShownWirelessWarningRef.current = true;
           setIsWirelessWarningOpen(true);
         }
         return next;
       });
       if (update.isConnected === false) {
+        hasShownWirelessWarningRef.current = false;
         inputManager.detachWebHIDDevice();
         rgbService.detachDevice();
         batteryService.detachDevice();
@@ -131,10 +132,7 @@ export function App() {
   }, [hidState.isConnected, hidState.isWireless, activeTab]);
 
   const handleConnect = async () => {
-    const success = await webhid.connect();
-    if (success && webhid.getState().isWireless) {
-      setIsWirelessWarningOpen(true);
-    }
+    await webhid.connect();
   };
 
   const handleApplyRemap = async (matrixIdx: number, newUsage: number) => {
