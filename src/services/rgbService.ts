@@ -130,21 +130,7 @@ export function findClosestHwColorIndex(hex: string): number {
   }
   const { r, g, b } = hexToRgb(hex);
 
-  // Perceptual mapping for common non-hardware colors on LED keyboard:
-  // Pure White or near-white maps to Cyan (#1AE5FF, cool white on keyboard LEDs)
-  if (clean === '#FFFFFF' || (r > 210 && g > 210 && b > 210)) {
-    return 4; // Cyan (looks like crisp cool white on keyboard LEDs)
-  }
-  // Magenta/Pink maps to Purple (#B833FF) instead of stark Red
-  if (clean === '#FF007F' || clean === '#FF1493' || clean === '#FF69B4') {
-    return 6; // Purple
-  }
-  // Ice blue maps to Cyan
-  if (clean === '#00D4FF') {
-    return 4; // Cyan
-  }
-
-  let bestIdx = 4; // Default to Cyan
+  let bestIdx = 4; // Default to Cyan (#1AE5FF)
   let bestDist = Infinity;
   for (const p of HW_COLOR_PRESETS) {
     const dr = r - p.r;
@@ -348,8 +334,9 @@ class RgbControllerService {
         }
 
         if (!silent) {
-          const customFlag = cfg128[9] === 1;
-          const effectId = cfg128[10];
+          const rawEffectId = cfg128[10];
+          const customFlag = cfg128[9] === 1 || rawEffectId === 18 || rawEffectId === 32;
+          const effectId = (rawEffectId === 18 || rawEffectId === 32) ? 18 : rawEffectId;
           const sideLightMode = cfg128[18];
 
           const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
@@ -439,8 +426,9 @@ class RgbControllerService {
         // Index 16: Custom mode flag (0 = hw effect, 1 = custom per-key)
         // Index 17: Effect ID
         // Index 25: Side light effect ID (0-4)
-        const customFlag = config136[16] === 1;
-        const effectId = config136[17];
+        const rawEffectId = config136[17];
+        const customFlag = config136[16] === 1 || rawEffectId === 18 || rawEffectId === 32;
+        const effectId = (rawEffectId === 18 || rawEffectId === 32) ? 18 : rawEffectId;
         const sideLightMode = config136[25];
 
         // Per-effect brightness & speed: offset = 63 + 2 * effectId
@@ -500,21 +488,23 @@ class RgbControllerService {
     this.stopKeepalive();
 
     const normalizedColor = colorHex.startsWith('#') ? colorHex.toUpperCase() : ('#' + colorHex).toUpperCase();
+    const isCustomMode = effectId === 18 || effectId === 32;
+    const normalizedEffectId = isCustomMode ? 18 : effectId;
 
     // Immediately update local state for fast UI responsiveness
     this.notify({
-      effectId,
+      effectId: normalizedEffectId,
       brightness,
       speed,
       colorful,
       staticColor: normalizedColor,
-      customMode: false,
+      customMode: isCustomMode,
       isDirectStreaming: false,
       activeSoftwareAnim: null,
     });
 
     if (!this.device || !this.device.opened) {
-      webhid.log(`[RGB Offline] Hardware effect set to #${effectId} (Color: ${normalizedColor}, Colorful: ${colorful})`);
+      webhid.log(`[RGB Offline] Hardware effect set to #${normalizedEffectId} (Color: ${normalizedColor}, Colorful: ${colorful})`);
       return true;
     }
 
@@ -523,7 +513,7 @@ class RgbControllerService {
       return this.runExclusive(async () => {
         try {
           webhid.log(
-            `[RGB 2.4G] Applying Effect #${effectId} (Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${normalizedColor})...`
+            `[RGB 2.4G] Applying Effect #${normalizedEffectId} (Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${normalizedColor})...`
           );
 
           let cfg128: Uint8Array;
@@ -538,14 +528,18 @@ class RgbControllerService {
           newCfg[126] = 0x5a;
           newCfg[127] = 0xa5;
 
-          // custom_flag = 0, effectId
-          newCfg[9] = effectId === 32 ? 0x01 : 0x00;
-          newCfg[10] = effectId;
+          // custom_flag, effectId, global control byte (0x20 per OemDrv.exe)
+          newCfg[9] = isCustomMode ? 0x01 : 0x00;
+          newCfg[10] = normalizedEffectId;
+          newCfg[11] = 0x20;
+          if (!newCfg[24]) newCfg[24] = 10;
+          newCfg[56] = 0xff;
+          newCfg[57] = 0xff;
 
           const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
 
           // Slot indexing: matches ckieking (effect 1..24 -> slot 0..23)
-          const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
+          const slotIdx = normalizedEffectId >= 1 && normalizedEffectId <= 24 ? normalizedEffectId - 1 : 0;
           const base = 58 + slotIdx * 2;
 
           // Map UI brightness (1..4) to hardware brightness (0..9)
@@ -553,7 +547,7 @@ class RgbControllerService {
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, brightness))] || 7
             : Math.min(9, Math.max(0, brightness));
 
-          if (effectId > 0 && effectId <= 32) {
+          if (normalizedEffectId > 0 && normalizedEffectId <= 32) {
             newCfg[base] = hwBrightness;
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
             const lower = colorIdx & 0x0f;
@@ -565,37 +559,47 @@ class RgbControllerService {
               if (!newCfg[b]) {
                 newCfg[b] = hwBrightness;
               }
+              if (!newCfg[b + 1]) {
+                newCfg[b + 1] = 0x27;
+              }
             }
-          } else if (effectId === 0) {
+          } else if (normalizedEffectId === 0) {
             newCfg[10] = 0x00;
           }
 
-          // Synchronize palette if single color mode is active
-          let needPaletteWrite = false;
-          if (!colorful && colorIdx < 7 && effectId >= 1 && effectId <= 23) {
-            const targetRgb = hexToRgb(normalizedColor);
-            if (!this.palette.effects[effectId]) {
-              this.palette.effects[effectId] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
-            }
-            const curr = this.palette.effects[effectId][colorIdx];
-            if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
-              this.palette.effects[effectId][colorIdx] = targetRgb;
-              needPaletteWrite = true;
-            }
-          }
-
-          // If palette has never been written or was detected all zeroes, write full palette
-          if (!this.paletteSynced) {
-            needPaletteWrite = true;
-          }
-
-          if (needPaletteWrite) {
+          // If in single-color Static Mode (#1), also update planar RGB solid map
+          if (normalizedEffectId === 1 && !colorful) {
             try {
-              await wirelessClient.writePalette(encodePalette(this.palette));
-              this.paletteSynced = true;
-              webhid.log(`[RGB 2.4G] Palette verified and written for effect #${effectId} slot ${colorIdx}`);
-            } catch (palErr: any) {
-              webhid.log(`[RGB 2.4G Palette Error] ${palErr.message}`);
+              const rgb = hexToRgb(normalizedColor);
+              const rgb378 = new Uint8Array(378);
+              for (let i = 0; i < 126; i++) {
+                rgb378[i] = rgb.r;
+                rgb378[126 + i] = rgb.g;
+                rgb378[252 + i] = rgb.b;
+              }
+              await wirelessClient.writeRgbMap(rgb378);
+            } catch {
+              // Ignore planar write retry
+            }
+          }
+
+          // Synchronize palette only if custom non-preset color is chosen
+          const isStandardPreset = HW_COLOR_PRESETS.some((p) => p.hex.toUpperCase() === normalizedColor);
+          if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23 && !isStandardPreset) {
+            const targetRgb = hexToRgb(normalizedColor);
+            if (!this.palette.effects[normalizedEffectId]) {
+              this.palette.effects[normalizedEffectId] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+            }
+            const curr = this.palette.effects[normalizedEffectId][colorIdx];
+            if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
+              this.palette.effects[normalizedEffectId][colorIdx] = targetRgb;
+              try {
+                await wirelessClient.writePalette(encodePalette(this.palette));
+                this.paletteSynced = true;
+                webhid.log(`[RGB 2.4G] Palette updated for effect #${normalizedEffectId} slot ${colorIdx}`);
+              } catch (palErr: any) {
+                webhid.log(`[RGB 2.4G Palette Error] ${palErr.message}`);
+              }
             }
           }
 
@@ -607,17 +611,17 @@ class RgbControllerService {
           this.cachedConfig = config136;
 
           this.notify({
-            effectId,
+            effectId: normalizedEffectId,
             brightness,
             speed,
             colorful,
             staticColor: normalizedColor,
-            customMode: false,
+            customMode: isCustomMode,
             isDirectStreaming: false,
             activeSoftwareAnim: null,
           });
 
-          webhid.log(`[RGB 2.4G] Effect #${effectId} successfully committed to keyboard memory!`);
+          webhid.log(`[RGB 2.4G] Effect #${normalizedEffectId} successfully committed to keyboard memory!`);
           return true;
         } catch (err: any) {
           webhid.log(`[RGB 2.4G Error] Failed to write effect: ${err.message}`);
@@ -662,28 +666,46 @@ class RgbControllerService {
           }
         }
 
-        // Set effect mode (custom_flag = 0 for hardware effect)
-        pkt[16] = 0x00;
-        pkt[17] = effectId;
+        // Set effect mode (custom_flag = 0 for hardware effect, 1 for custom)
+        pkt[16] = isCustomMode ? 0x01 : 0x00;
+        pkt[17] = normalizedEffectId;
+        pkt[18] = 0x20; // StartGp global control byte per OemDrv.exe
 
         // Force secondary light channels (byte 26 & byte 36) to 0x00 (OFF)
         // This stops ghost red hue (modes 3 & 4 in firmware are Static Red / Breathing Red)
         pkt[25] = 0x00;
         pkt[35] = 0x00;
+        pkt[63] = 0xff; // offset 56 in config
+        pkt[64] = 0xff; // offset 57 in config
 
         // Patch brightness, speed, and color at offset 63 + 2 * effectId
         const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
-        if (effectId > 0 && effectId <= 32) {
-          const paramOff = 63 + 2 * effectId;
+        const hwBrightWired = Math.max(1, Math.min(9, [0, 2, 5, 7, 9][brightness] || 7));
+
+        if (normalizedEffectId > 0 && normalizedEffectId <= 32) {
+          const paramOff = 63 + 2 * normalizedEffectId;
           if (paramOff + 1 < 519) {
-            pkt[paramOff] = Math.max(1, Math.min(4, brightness));
+            pkt[paramOff] = hwBrightWired;
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
             const lower = (colorful ? 0x07 : colorIdx) & 0x0f;
             pkt[paramOff + 1] = upper | lower;
           }
-        } else if (effectId === 0) {
+          // Ensure all 24 slots have active brightness
+          for (let i = 0; i < 24; i++) {
+            const b = 65 + i * 2;
+            if (!pkt[b]) {
+              pkt[b] = hwBrightWired;
+            }
+            if (!pkt[b + 1]) {
+              pkt[b + 1] = 0x27;
+            }
+          }
+        } else if (normalizedEffectId === 0) {
           pkt[17] = 0x00;
         }
+
+        pkt[513] = 0x5a;
+        pkt[514] = 0xa5;
 
         // Send feature report with retry if needed
         let writeOk = false;
@@ -711,13 +733,14 @@ class RgbControllerService {
 
         // Update cached configuration memory
         if (this.cachedConfig) {
-          this.cachedConfig[16] = 0x00;
-          this.cachedConfig[17] = effectId;
+          this.cachedConfig[16] = isCustomMode ? 0x01 : 0x00;
+          this.cachedConfig[17] = normalizedEffectId;
+          this.cachedConfig[18] = 0x20;
           this.cachedConfig[25] = 0x00;
           this.cachedConfig[35] = 0x00;
-          const pOff = 63 + 2 * effectId;
+          const pOff = 63 + 2 * normalizedEffectId;
           if (pOff + 1 < this.cachedConfig.length) {
-            this.cachedConfig[pOff] = Math.max(1, Math.min(4, brightness));
+            this.cachedConfig[pOff] = hwBrightWired;
             this.cachedConfig[pOff + 1] =
               ((Math.max(0, Math.min(4, speed)) & 0x0f) << 4) | (colorful ? 0x07 : colorIdx);
           }
@@ -725,17 +748,17 @@ class RgbControllerService {
 
         // Broadcast confirmed state
         this.notify({
-          effectId,
+          effectId: normalizedEffectId,
           brightness,
           speed,
           colorful,
           staticColor: normalizedColor,
-          customMode: false,
+          customMode: isCustomMode,
           isDirectStreaming: false,
           activeSoftwareAnim: null,
         });
 
-        webhid.log(`[RGB] Effect #${effectId} successfully committed to keyboard memory!`);
+        webhid.log(`[RGB] Effect #${normalizedEffectId} successfully committed to keyboard memory!`);
         return true;
       } catch (err: any) {
         webhid.log(`[RGB Error] Failed to write effect: ${err.message}`);
@@ -929,7 +952,7 @@ class RgbControllerService {
     this.notify({
       perKeyColors,
       customMode: true,
-      effectId: 32, // Mode 32 (0x20): Per-Key Custom RGB in SinoWealth firmware (matches ckieking)
+      effectId: 18, // Mode 18 (GaoshouIndex = 18 in KB.ini / OemDrv.exe for Hi75C Pro)
       isDirectStreaming: false,
       activeSoftwareAnim: null,
     });
@@ -950,7 +973,7 @@ class RgbControllerService {
           webhid.log(`[RGB 2.4G] Applying Per-Key Custom RGB (${Object.keys(perKeyColors).length} keys mapped)...`);
 
           // 1. Build 378-byte planar RGB map: R[0..125], G[126..251], B[252..377]
-          // Matches ckieking encodeRgbMap layout exactly
+          // Matches OemDrv.exe 0x493bb8 layout exactly
           const rgb378 = new Uint8Array(378);
 
           for (let i = 0; i < 126; i++) {
@@ -980,10 +1003,13 @@ class RgbControllerService {
             newCfg.set(cfg.subarray(0, 128));
           }
 
-          // Enable Per-Key Custom Mode: customFlag = 1, effectId = 32 (0x20)
-          newCfg[9] = 0x01; // customFlag = 1
-          newCfg[10] = 32;  // effectId = 32 (Per-Key Custom Mode in SinoWealth firmware / ckieking)
+          // Enable Per-Key Custom Mode: customFlag = 1, effectId = 18 (GaoshouIndex from KB.ini / OemDrv.exe)
+          newCfg[9] = 0x01;  // customFlag = 1
+          newCfg[10] = 18;   // effectId = 18 (GaoshouIndex from KB.ini / OemDrv.exe)
+          newCfg[11] = 0x20; // StartGp global brightness/control byte from OemDrv.exe line 0x49321f
           if (!newCfg[24]) newCfg[24] = 10; // sleepStep = 10 (5 min default)
+          newCfg[56] = 0xff;
+          newCfg[57] = 0xff;
 
           // Hardware brightness scale (0..9, default 7..9)
           const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
@@ -991,29 +1017,26 @@ class RgbControllerService {
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, currentBrightness))] || 7
             : Math.min(9, Math.max(0, currentBrightness));
 
-          // Slot 0 (Effect 32 / Custom Mode parameter slot in ckieking)
-          newCfg[58] = hwBrightness;
-          newCfg[59] = 0x27; // speed 2, color 7 (multicolor flag)
-
-          // Ensure all 24 slots have active brightness and parameters so hardware never shuts off
+          // Ensure all 24 slots (including slot 0, slot 17 for Effect 18, and slot 28) have active brightness
           for (let i = 0; i < 24; i++) {
             const base = 58 + i * 2;
-            if (!newCfg[base]) {
-              newCfg[base] = hwBrightness;
-            }
-            if (!newCfg[base + 1]) {
-              newCfg[base + 1] = 0x27;
-            }
+            newCfg[base] = hwBrightness;
+            newCfg[base + 1] = 0x27; // speed 2, color 7 (multicolor/custom flag)
           }
 
           // Magic trailer bytes (0x5A, 0xA5)
           newCfg[126] = 0x5a;
           newCfg[127] = 0xa5;
 
-          // Step 1: Write configuration (switches microcontroller to Effect #32 Custom Mode)
-          await wirelessClient.writeConfig(newCfg);
+          // Step 1: Write planar RGB map first (matches OemDrv.exe 0x493c4c execution order)
+          await wirelessClient.writeRgbMap(rgb378);
+          await new Promise((r) => setTimeout(r, 40));
 
-          // Step 2: Write planar RGB map (CMD 0x02, 378 bytes)
+          // Step 2: Write configuration (switches microcontroller to Effect #18 Custom Mode)
+          await wirelessClient.writeConfig(newCfg);
+          await new Promise((r) => setTimeout(r, 40));
+
+          // Step 3: Write planar RGB map again to guarantee SRAM latching
           try {
             await wirelessClient.writeRgbMap(rgb378);
             webhid.log('[RGB 2.4G] Per-key planar RGB successfully applied to keyboard memory!');
@@ -1029,7 +1052,7 @@ class RgbControllerService {
           this.notify({
             perKeyColors,
             customMode: true,
-            effectId: 32,
+            effectId: 18,
             brightness: currentBrightness,
             speed: 2,
             colorful: true,
@@ -1045,7 +1068,28 @@ class RgbControllerService {
 
     return this.runExclusive(async () => {
       try {
-        webhid.log(`[RGB] Uploading planar RGB packet (CMD 0x06)...`);
+        webhid.log(`[RGB] Uploading planar RGB packets...`);
+
+        // Matches official OemDrv.exe 0x48d580 method (Feature Report 8 with 0x0A, 0x7A, 0x01)
+        try {
+          const report8 = new Uint8Array(382);
+          report8[0] = 0x08;
+          report8[1] = 0x0a;
+          report8[2] = 0x7a;
+          report8[3] = 0x01;
+          for (let i = 0; i < 126; i++) {
+            const hex = perKeyColors[i];
+            const rgb = hex !== undefined ? hexToRgb(hex) : (!hasFullLayout ? baseRgb : { r: 0, g: 0, b: 0 });
+            report8[4 + i] = rgb.r;
+            report8[4 + 126 + i] = rgb.g;
+            report8[4 + 252 + i] = rgb.b;
+          }
+          await this.device.sendFeatureReport(8, report8);
+        } catch (err8: any) {
+          webhid.log(`[RGB Report 8 info] ${err8.message}`);
+        }
+
+        // Feature Report 6 (CMD 0x06: LED_PLANAR)
         const pkt = new Uint8Array(519);
         pkt[0] = 0x06; // CMD: LED_PLANAR
         pkt[1] = 0x00;
@@ -1078,7 +1122,7 @@ class RgbControllerService {
         const freshConfig = await this.readDeviceConfig(true);
         await new Promise((r) => setTimeout(r, 25));
 
-        // Trigger config write for Effect 32 (Per-Key Custom) with brightness
+        // Trigger config write for Effect 18 (Per-Key Custom) with brightness
         const cfgPkt = new Uint8Array(519);
         cfgPkt[0] = 0x04;
         cfgPkt[3] = 0x01;
@@ -1093,14 +1137,24 @@ class RgbControllerService {
         }
 
         cfgPkt[16] = 0x01; // custom_flag = 1 (enables custom per-key)
-        cfgPkt[17] = 32;   // effect 32 (Per-Key Custom RGB)
+        cfgPkt[17] = 18;   // effect 18 (Per-Key Custom RGB from KB.ini / OemDrv.exe)
+        cfgPkt[18] = 0x20; // StartGp = 0x20 per OemDrv.exe
         cfgPkt[25] = 0x00;
         cfgPkt[35] = 0x00;
+        cfgPkt[63] = 0xff; // offset 56 in config
+        cfgPkt[64] = 0xff; // offset 57 in config
 
         const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
-        // Parameter for Slot 0 (base = 58 -> offset in cfgPkt: 7 + 58 = 65)
-        cfgPkt[65] = Math.max(1, Math.min(9, [0, 2, 5, 7, 9][currentBrightness] || 7));
-        cfgPkt[66] = 0x27;
+        const hwBrightness = Math.max(1, Math.min(9, [0, 2, 5, 7, 9][currentBrightness] || 7));
+
+        for (let i = 0; i < 24; i++) {
+          const b = 65 + i * 2;
+          cfgPkt[b] = hwBrightness;
+          cfgPkt[b + 1] = 0x27;
+        }
+
+        cfgPkt[513] = 0x5a;
+        cfgPkt[514] = 0xa5;
 
         await this.device.sendFeatureReport(6, cfgPkt);
         webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
@@ -1108,7 +1162,7 @@ class RgbControllerService {
         this.notify({
           perKeyColors,
           customMode: true,
-          effectId: 32,
+          effectId: 18,
           brightness: currentBrightness,
           speed: 2,
           colorful: true,
