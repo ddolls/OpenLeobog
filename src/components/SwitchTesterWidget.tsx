@@ -569,9 +569,9 @@ export const SwitchTesterWidget: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setSelectedKeyIdx(keyDef.matrixIdx);
-                        if (keyDef.matrixIdx === 53) {
-                          switchHealthService.recordKeyDown(53, 'Fn', 'Fn');
-                          setTimeout(() => switchHealthService.recordKeyUp(53), 100);
+                        if (keyDef.matrixIdx === 59) {
+                          switchHealthService.recordKeyDown(59, 'Fn', 'Fn');
+                          setTimeout(() => switchHealthService.recordKeyUp(59), 100);
                         }
                       }}
                       style={{
@@ -655,9 +655,9 @@ export const SwitchTesterWidget: React.FC = () => {
                 </div>
               </div>
 
-              {selectedKeyData.matrixIdx === 53 && (
+              {selectedKeyData.matrixIdx === 59 && (
                 <div className="bg-cyan-950/30 border border-cyan-800/60 rounded-xl p-3 text-xs text-cyan-200 space-y-1">
-                  <div className="font-bold text-white">Hardware Layer Key (Matrix #53)</div>
+                  <div className="font-bold text-white">Hardware Layer Key (Matrix #59)</div>
                   <p className="text-[11px] text-cyan-300/80 leading-relaxed">
                     The physical Fn key is handled internally by the keyboard microcontroller firmware to switch hardware matrix layers. It does not send an OS scan code to Windows. Click this key on the matrix above to manually test its contact.
                   </p>

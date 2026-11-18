@@ -56,7 +56,6 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
               const isModified = record && record.hidUsage !== record.originalUsage;
               const isSelected = selectedMatrixIdx === keyDef.matrixIdx;
               const isPressed = pressedIndices.has(keyDef.matrixIdx);
-              const isFnKey = keyDef.category === 'fn' || keyDef.matrixIdx === 53;
 
               if (keyDef.isKnob) {
                 const isKnobActive = isPressed || knobState.isActive;
@@ -161,8 +160,6 @@ export const KeyboardGrid: React.FC<KeyboardGridProps> = ({
                       ? 'selected'
                       : isModified
                       ? 'modified'
-                      : isFnKey
-                      ? 'fn-key'
                       : 'text-zinc-200'
                   }`}
                 >

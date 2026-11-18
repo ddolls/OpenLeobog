@@ -325,8 +325,8 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 81, label: 'Enter', width: 2.25, row: 3, col: 12.75 },
   { matrixIdx: 87, label: 'PgUp', row: 3, col: 15, category: 'nav' },
 
-  // Row 4: LShift, ZXCVBNM, ,, ., /, RShift, Up, PgDn
-  { matrixIdx: 4, label: 'LShift', width: 2.25, row: 4, col: 0, category: 'modifier' },
+  // Row 4: Shift, ZXCVBNM, ,, ., /, Shift, Up, PgDn
+  { matrixIdx: 4, label: 'Shift', width: 2.25, row: 4, col: 0, category: 'modifier' },
   { matrixIdx: 10, label: 'Z', row: 4, col: 2.25 },
   { matrixIdx: 16, label: 'X', row: 4, col: 3.25 },
   { matrixIdx: 22, label: 'C', row: 4, col: 4.25 },
@@ -337,18 +337,18 @@ export const LEOBOG_HI75C_LAYOUT: KeyDefinition[] = [
   { matrixIdx: 52, label: ',', row: 4, col: 9.25 },
   { matrixIdx: 58, label: '.', row: 4, col: 10.25 },
   { matrixIdx: 64, label: '/', row: 4, col: 11.25 },
-  { matrixIdx: 70, label: 'RShift', width: 1.75, row: 4, col: 12.25, category: 'modifier' },
+  { matrixIdx: 70, label: 'Shift', width: 1.75, row: 4, col: 12.25, category: 'modifier' },
   { matrixIdx: 82, label: '▲', row: 4, col: 14, category: 'nav' },
   { matrixIdx: 88, label: 'PgDn', row: 4, col: 15, category: 'nav' },
 
-  // Row 5: LCtrl, Win, LAlt, Space, RAlt, Fn, RCtrl, Left, Down, Right
-  { matrixIdx: 5, label: 'LCtrl', width: 1.25, row: 5, col: 0, category: 'modifier' },
+  // Row 5: Ctrl, Win, Alt, Space, Alt, Fn, Ctrl, Left, Down, Right
+  { matrixIdx: 5, label: 'Ctrl', width: 1.25, row: 5, col: 0, category: 'modifier' },
   { matrixIdx: 11, label: 'Win', width: 1.25, row: 5, col: 1.25, category: 'modifier' },
-  { matrixIdx: 17, label: 'LAlt', width: 1.25, row: 5, col: 2.5, category: 'modifier' },
+  { matrixIdx: 17, label: 'Alt', width: 1.25, row: 5, col: 2.5, category: 'modifier' },
   { matrixIdx: 35, label: 'Space', width: 6.25, row: 5, col: 3.75 },
-  { matrixIdx: 53, label: 'RAlt', width: 1, row: 5, col: 10, category: 'modifier' },
+  { matrixIdx: 53, label: 'Alt', width: 1, row: 5, col: 10, category: 'modifier' },
   { matrixIdx: 59, label: 'Fn', width: 1, row: 5, col: 11, category: 'fn' },
-  { matrixIdx: 65, label: 'RCtrl', width: 1, row: 5, col: 12, category: 'modifier' },
+  { matrixIdx: 65, label: 'Ctrl', width: 1, row: 5, col: 12, category: 'modifier' },
   { matrixIdx: 77, label: '◄', row: 5, col: 13, category: 'nav' },
   { matrixIdx: 83, label: '▼', row: 5, col: 14, category: 'nav' },
   { matrixIdx: 89, label: '►', row: 5, col: 15, category: 'nav' },
@@ -412,11 +412,11 @@ export const HID_USAGES: HIDUsageItem[] = [
   { usage: 0x39, label: 'Caps Lock', category: 'Standard' },
 
   // Modifiers
-  { usage: 0xE0, label: 'Left Control', category: 'Modifiers' },
+  { usage: 0xE0, label: 'Left Ctrl', category: 'Modifiers' },
   { usage: 0xE1, label: 'Left Shift', category: 'Modifiers' },
   { usage: 0xE2, label: 'Left Alt', category: 'Modifiers' },
   { usage: 0xE3, label: 'Left GUI / Win', category: 'Modifiers' },
-  { usage: 0xE4, label: 'Right Control', category: 'Modifiers' },
+  { usage: 0xE4, label: 'Right Ctrl', category: 'Modifiers' },
   { usage: 0xE5, label: 'Right Shift', category: 'Modifiers' },
   { usage: 0xE6, label: 'Right Alt', category: 'Modifiers' },
   { usage: 0xE7, label: 'Right GUI / Win', category: 'Modifiers' },
