@@ -929,7 +929,7 @@ class RgbControllerService {
     this.notify({
       perKeyColors,
       customMode: true,
-      effectId: 32, // Mode 32 (0x20): Per-Key Custom RGB in SinoWealth 2.4G firmware
+      effectId: 32, // Mode 32 (0x20): Per-Key Custom RGB in SinoWealth firmware (matches ckieking)
       isDirectStreaming: false,
       activeSoftwareAnim: null,
     });
@@ -939,71 +939,87 @@ class RgbControllerService {
       return true;
     }
 
+    const baseHex = this.state.staticColor || '#1AE5FF';
+    const baseRgb = hexToRgb(baseHex);
+    const hasFullLayout = Object.keys(perKeyColors).length >= 50;
+
     const wirelessClient = webhid.getWirelessClient();
     if (wirelessClient) {
       return this.runExclusive(async () => {
         try {
-          webhid.log(`[RGB 2.4G] Applying lighting for 2.4G dongle mode...`);
+          webhid.log(`[RGB 2.4G] Applying Per-Key Custom RGB (${Object.keys(perKeyColors).length} keys mapped)...`);
 
-          // Determine dominant color from perKeyColors (ignoring black)
-          let dominantColor = this.state.staticColor || '#00E5FF';
-          for (const hex of Object.values(perKeyColors)) {
-            if (hex && hex !== '#000000' && hex !== '#111111' && hex !== '#121212') {
-              dominantColor = hex;
-              break;
+          // 1. Build 378-byte planar RGB map: R[0..125], G[126..251], B[252..377]
+          // Matches ckieking encodeRgbMap layout exactly
+          const rgb378 = new Uint8Array(378);
+
+          for (let i = 0; i < 126; i++) {
+            const hex = perKeyColors[i];
+            if (hex !== undefined) {
+              const c = hexToRgb(hex);
+              rgb378[i] = c.r;
+              rgb378[126 + i] = c.g;
+              rgb378[252 + i] = c.b;
+            } else if (!hasFullLayout) {
+              // If only specific keys were painted, preserve ambient base color for all other keys
+              rgb378[i] = baseRgb.r;
+              rgb378[126 + i] = baseRgb.g;
+              rgb378[252 + i] = baseRgb.b;
             }
           }
 
+          // 2. Prepare 128-byte configuration
           let cfg: Uint8Array;
           try {
             cfg = await wirelessClient.readConfig();
           } catch {
-            cfg = new Uint8Array(128);
+            cfg = this.cachedConfig ? this.cachedConfig.slice(7, 135) : new Uint8Array(128);
           }
           const newCfg = new Uint8Array(128);
-          newCfg.set(cfg);
+          if (cfg && cfg.length >= 128) {
+            newCfg.set(cfg.subarray(0, 128));
+          }
 
-          // IMPORTANT: On 2.4G wireless dongle, customFlag = 1 shuts off LEDs because the RF
-          // transceiver cannot render per-key matrix streaming (documented in ckieking driver).
-          // Setting customFlag = 0 keeps the hardware LED engine running with Static Color (#1)!
-          newCfg[9] = 0x00; // customFlag = 0 (Guarantees keyboard LEDs remain ON!)
-          newCfg[10] = 1;   // Effect #1: Static Color
+          // Enable Per-Key Custom Mode: customFlag = 1, effectId = 32 (0x20)
+          newCfg[9] = 0x01; // customFlag = 1
+          newCfg[10] = 32;  // effectId = 32 (Per-Key Custom Mode in SinoWealth firmware / ckieking)
+          if (!newCfg[24]) newCfg[24] = 10; // sleepStep = 10 (5 min default)
 
-          const colorIdx = findClosestHwColorIndex(dominantColor);
+          // Hardware brightness scale (0..9, default 7..9)
           const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
           const hwBrightness = currentBrightness <= 4
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, currentBrightness))] || 7
             : Math.min(9, Math.max(0, currentBrightness));
 
-          // Slot 0 (Effect 1)
+          // Slot 0 (Effect 32 / Custom Mode parameter slot in ckieking)
           newCfg[58] = hwBrightness;
-          newCfg[59] = colorIdx & 0x0f;
+          newCfg[59] = 0x27; // speed 2, color 7 (multicolor flag)
 
-          // Ensure all slots have active brightness so keyboard is never dark
+          // Ensure all 24 slots have active brightness and parameters so hardware never shuts off
           for (let i = 0; i < 24; i++) {
             const base = 58 + i * 2;
             if (!newCfg[base]) {
               newCfg[base] = hwBrightness;
             }
+            if (!newCfg[base + 1]) {
+              newCfg[base + 1] = 0x27;
+            }
           }
 
+          // Magic trailer bytes (0x5A, 0xA5)
           newCfg[126] = 0x5a;
           newCfg[127] = 0xa5;
 
-          // Update palette effect 1 with this color
-          const targetRgb = hexToRgb(dominantColor);
-          if (!this.palette.effects[1]) {
-            this.palette.effects[1] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
-          }
-          this.palette.effects[1][colorIdx] = targetRgb;
-
-          try {
-            await wirelessClient.writePalette(encodePalette(this.palette));
-          } catch {
-            // Ignore palette sync error
-          }
-
+          // Step 1: Write configuration (switches microcontroller to Effect #32 Custom Mode)
           await wirelessClient.writeConfig(newCfg);
+
+          // Step 2: Write planar RGB map (CMD 0x02, 378 bytes)
+          try {
+            await wirelessClient.writeRgbMap(rgb378);
+            webhid.log('[RGB 2.4G] Per-key planar RGB successfully applied to keyboard memory!');
+          } catch (rgbErr: any) {
+            webhid.log(`[RGB 2.4G writeRgbMap notice] ${rgbErr.message}`);
+          }
 
           const config136 = new Uint8Array(136);
           config136[0] = 0x84;
@@ -1012,18 +1028,16 @@ class RgbControllerService {
 
           this.notify({
             perKeyColors,
-            customMode: false,
-            effectId: 1,
-            staticColor: dominantColor,
+            customMode: true,
+            effectId: 32,
             brightness: currentBrightness,
             speed: 2,
-            colorful: false,
+            colorful: true,
           });
 
-          webhid.log('[RGB 2.4G] Successfully applied lighting with customFlag=0 (LEDs active)!');
           return true;
         } catch (err: any) {
-          webhid.log(`[RGB 2.4G Error] Failed to write planar RGB: ${err.message}`);
+          webhid.log(`[RGB 2.4G Error] Failed to write custom RGB: ${err.message}`);
           return false;
         }
       });
@@ -1049,14 +1063,12 @@ class RgbControllerService {
         const planeG = 7 + 126;
         const planeB = 7 + 126 * 2;
 
-        for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
-          const idx = parseInt(keyIdxStr, 10);
-          if (idx < 126) {
-            const rgb = hexToRgb(hex);
-            pkt[planeR + idx] = rgb.r;
-            pkt[planeG + idx] = rgb.g;
-            pkt[planeB + idx] = rgb.b;
-          }
+        for (let i = 0; i < 126; i++) {
+          const hex = perKeyColors[i];
+          const rgb = hex !== undefined ? hexToRgb(hex) : (!hasFullLayout ? baseRgb : { r: 0, g: 0, b: 0 });
+          pkt[planeR + i] = rgb.r;
+          pkt[planeG + i] = rgb.g;
+          pkt[planeB + i] = rgb.b;
         }
 
         await this.device.sendFeatureReport(6, pkt);
@@ -1066,7 +1078,7 @@ class RgbControllerService {
         const freshConfig = await this.readDeviceConfig(true);
         await new Promise((r) => setTimeout(r, 25));
 
-        // Trigger config write for Effect 1 (Static Color) with brightness
+        // Trigger config write for Effect 32 (Per-Key Custom) with brightness
         const cfgPkt = new Uint8Array(519);
         cfgPkt[0] = 0x04;
         cfgPkt[3] = 0x01;
@@ -1081,21 +1093,27 @@ class RgbControllerService {
         }
 
         cfgPkt[16] = 0x01; // custom_flag = 1 (enables custom per-key)
-        cfgPkt[17] = 0x12; // effect 18 (0x12) = Custom User Matrix Mode!
+        cfgPkt[17] = 32;   // effect 32 (Per-Key Custom RGB)
         cfgPkt[25] = 0x00;
         cfgPkt[35] = 0x00;
 
         const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
-        // Parameter for Effect 18: 63 + 2 * 18 = 99
-        cfgPkt[99] = Math.max(1, Math.min(4, currentBrightness));
-        cfgPkt[100] = 0x20;
-
-        // Also parameter for Effect 1: 63 + 2 * 1 = 65
-        cfgPkt[65] = Math.max(1, Math.min(4, currentBrightness));
+        // Parameter for Slot 0 (base = 58 -> offset in cfgPkt: 7 + 58 = 65)
+        cfgPkt[65] = Math.max(1, Math.min(9, [0, 2, 5, 7, 9][currentBrightness] || 7));
         cfgPkt[66] = 0x27;
 
         await this.device.sendFeatureReport(6, cfgPkt);
         webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
+
+        this.notify({
+          perKeyColors,
+          customMode: true,
+          effectId: 32,
+          brightness: currentBrightness,
+          speed: 2,
+          colorful: true,
+        });
+
         return true;
       } catch (err: any) {
         webhid.log(`[RGB] Per-key write error: ${err.message}`);
