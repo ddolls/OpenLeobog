@@ -141,150 +141,152 @@ class HardwareSettingsService {
 
   // Apply Tap, Sleep, and Debounce to hardware via SinoWealth CMD 0x04 (CONFIG_WRITE) on Report ID 6
   public async applyToHardware(): Promise<{ success: boolean; message: string }> {
-    const dev = (webhid as any).device;
-    if (!dev || !dev.opened) {
-      return {
-        success: false,
-        message: 'Device is not connected. Please connect via USB cable or 2.4G dongle and initialize WebHID first.',
-      };
-    }
+    return webhid.runExclusive(async () => {
+      const dev = (webhid as any).device;
+      if (!dev || !dev.opened) {
+        return {
+          success: false,
+          message: 'Device is not connected. Please connect via USB cable or 2.4G dongle and initialize WebHID first.',
+        };
+      }
 
-    const wirelessClient = webhid.getWirelessClient();
-    if (wirelessClient) {
+      const wirelessClient = webhid.getWirelessClient();
+      if (wirelessClient) {
+        this.isApplying = true;
+        try {
+          const sleepUnits = this.settings.sleepEnabled
+            ? Math.max(1, Math.min(120, Math.round(this.settings.sleepTimeoutSeconds / 30)))
+            : 0;
+          const debounceStage = Math.max(1, Math.min(5, this.settings.debounceStage));
+          const tapVal = this.settings.tapEnabled
+            ? Math.max(1, Math.min(10, Math.round(this.settings.tapSensitivityMs / 50)))
+            : 0;
+
+          let cfg: Uint8Array;
+          try {
+            cfg = await wirelessClient.readConfig();
+          } catch {
+            cfg = new Uint8Array(128);
+          }
+          const newCfg = new Uint8Array(cfg);
+          newCfg[126] = 0x5a;
+          newCfg[127] = 0xa5;
+
+          newCfg[3] = debounceStage;
+          newCfg[2] = debounceStage;
+          newCfg[22] = tapVal;
+          newCfg[8] = tapVal;
+          newCfg[24] = sleepUnits;
+
+          await wirelessClient.writeConfig(newCfg);
+          await rgbService.readDeviceConfig(true);
+
+          this.isApplying = false;
+          webhid.log(`[Hardware Settings 2.4G] Successfully written to keyboard memory.`);
+          return {
+            success: true,
+            message: 'Sleep, Debounce, and Tap settings successfully saved to keyboard memory via 2.4G!',
+          };
+        } catch (err: any) {
+          webhid.log(`[Hardware Settings 2.4G Error] Write error: ${err.message}`);
+          this.isApplying = false;
+          return {
+            success: false,
+            message: `Failed to save to hardware via 2.4G: ${err.message}`,
+          };
+        }
+      }
+
       this.isApplying = true;
       try {
+        // Calculate hardware payload parameters:
+        // Sleep in 30-second units (e.g. 60s = 2, 120s = 4, 180s = 6, 300s = 10, 600s = 20, 0 = Always Awake)
         const sleepUnits = this.settings.sleepEnabled
           ? Math.max(1, Math.min(120, Math.round(this.settings.sleepTimeoutSeconds / 30)))
-          : 0;
+          : 0; // 0 = Always Awake
         const debounceStage = Math.max(1, Math.min(5, this.settings.debounceStage));
         const tapVal = this.settings.tapEnabled
           ? Math.max(1, Math.min(10, Math.round(this.settings.tapSensitivityMs / 50)))
           : 0;
 
-        let cfg: Uint8Array;
-        try {
-          cfg = await wirelessClient.readConfig();
-        } catch {
-          cfg = new Uint8Array(128);
+        webhid.log(
+          `[Hardware Settings] Applying parameters: Debounce=Stage ${debounceStage}, Tap=${tapVal}, Sleep=${sleepUnits} units (${Math.round(
+            this.settings.sleepTimeoutSeconds / 60
+          )} Min)`
+        );
+
+        // 1. Fetch current baseline config (136 bytes) to preserve active lighting mode and matrix
+        let baseline = rgbService.getCachedConfig();
+        if (!baseline) {
+          baseline = await rgbService.readDeviceConfig(true);
+          await new Promise((r) => setTimeout(r, 40));
         }
-        const newCfg = new Uint8Array(cfg);
-        newCfg[126] = 0x5a;
-        newCfg[127] = 0xa5;
 
-        newCfg[3] = debounceStage;
-        newCfg[2] = debounceStage;
-        newCfg[22] = tapVal;
-        newCfg[8] = tapVal;
-        newCfg[24] = sleepUnits;
+        // 2. Prepare 519-byte command packet (CMD 0x04: CONFIG_WRITE)
+        const pkt = new Uint8Array(519);
+        pkt[0] = 0x04; // CMD: CONFIG_WRITE
+        pkt[1] = 0x00;
+        pkt[2] = 0x00;
+        pkt[3] = 0x01; // Subcommand / Page 1 (CRITICAL: MUST NOT BE OVERWRITTEN)
+        pkt[4] = 0x00;
+        pkt[5] = 0x80; // Length = 128 (0x80) bytes
+        pkt[6] = 0x00;
 
-        await wirelessClient.writeConfig(newCfg);
+        if (baseline) {
+          const copyLen = Math.min(baseline.length - 7, 519 - 7);
+          for (let i = 0; i < copyLen; i++) {
+            pkt[7 + i] = baseline[7 + i];
+          }
+        }
+
+        // 3. Set verified Cfg offsets according to Leobog ONE driver FillCfg disassembly:
+        // Cfg[3]  (wire pkt[7 + 3  = 10]): Debounce stage (1-5)
+        // Cfg[22] (wire pkt[7 + 22 = 29]): Tap setting (0=OFF, 1-10)
+        // Cfg[24] (wire pkt[7 + 24 = 31]): Sleep timeout in 30s units (2=1m, 4=2m, 6=3m, 10=5m)
+        pkt[7 + 3] = debounceStage; // pkt[10]
+        pkt[7 + 22] = tapVal;       // pkt[29]
+        pkt[7 + 24] = sleepUnits;   // pkt[31]
+
+        // Mirror to secondary / LowDaly offsets for maximum cross-revision firmware compatibility
+        pkt[7 + 2] = debounceStage; // pkt[9]
+        pkt[7 + 8] = tapVal;        // pkt[15]
+        pkt[2] = debounceStage;
+        pkt[8] = tapVal;
+
+        webhid.log(
+          `[Hardware Settings] Writing packet: pkt[10](Debounce)=${pkt[10]}, pkt[29](Tap)=${pkt[29]}, pkt[31](Sleep)=${pkt[31]}`
+        );
+
+        // 4. Send feature report 6
+        await dev.sendFeatureReport(6, pkt);
+        await new Promise((r) => setTimeout(r, 40));
+
+        // 5. Send latch confirmation
+        try {
+          await dev.sendFeatureReport(6, pkt);
+        } catch {
+          // Latch retry
+        }
+        await new Promise((r) => setTimeout(r, 50));
+
+        // 6. Re-read device config to verify
         await rgbService.readDeviceConfig(true);
 
+        webhid.log(`[Hardware Settings] Successfully written and verified in Leobog Hi75c Pro internal EEPROM.`);
         this.isApplying = false;
-        webhid.log(`[Hardware Settings 2.4G] Successfully written to keyboard memory.`);
         return {
           success: true,
-          message: 'Sleep, Debounce, and Tap settings successfully saved to keyboard memory via 2.4G!',
+          message: 'Tap, Sleep, and Debounce settings successfully saved to keyboard memory!',
         };
       } catch (err: any) {
-        webhid.log(`[Hardware Settings 2.4G Error] Write error: ${err.message}`);
+        webhid.log(`[Hardware Settings] Write error: ${err.message}`);
         this.isApplying = false;
         return {
           success: false,
-          message: `Failed to save to hardware via 2.4G: ${err.message}`,
+          message: `Failed to write to hardware: ${err.message}. Please verify the keyboard is connected in Wired USB mode.`,
         };
       }
-    }
-
-    this.isApplying = true;
-    try {
-      // Calculate hardware payload parameters:
-      // Sleep in 30-second units (e.g. 60s = 2, 120s = 4, 180s = 6, 300s = 10, 600s = 20, 0 = Always Awake)
-      const sleepUnits = this.settings.sleepEnabled
-        ? Math.max(1, Math.min(120, Math.round(this.settings.sleepTimeoutSeconds / 30)))
-        : 0; // 0 = Always Awake
-      const debounceStage = Math.max(1, Math.min(5, this.settings.debounceStage));
-      const tapVal = this.settings.tapEnabled
-        ? Math.max(1, Math.min(10, Math.round(this.settings.tapSensitivityMs / 50)))
-        : 0;
-
-      webhid.log(
-        `[Hardware Settings] Applying parameters: Debounce=Stage ${debounceStage}, Tap=${tapVal}, Sleep=${sleepUnits} units (${Math.round(
-          this.settings.sleepTimeoutSeconds / 60
-        )} Min)`
-      );
-
-      // 1. Fetch current baseline config (136 bytes) to preserve active lighting mode and matrix
-      let baseline = rgbService.getCachedConfig();
-      if (!baseline) {
-        baseline = await rgbService.readDeviceConfig(true);
-        await new Promise((r) => setTimeout(r, 40));
-      }
-
-      // 2. Prepare 519-byte command packet (CMD 0x04: CONFIG_WRITE)
-      const pkt = new Uint8Array(519);
-      pkt[0] = 0x04; // CMD: CONFIG_WRITE
-      pkt[1] = 0x00;
-      pkt[2] = 0x00;
-      pkt[3] = 0x01; // Subcommand / Page 1 (CRITICAL: MUST NOT BE OVERWRITTEN)
-      pkt[4] = 0x00;
-      pkt[5] = 0x80; // Length = 128 (0x80) bytes
-      pkt[6] = 0x00;
-
-      if (baseline) {
-        const copyLen = Math.min(baseline.length - 7, 519 - 7);
-        for (let i = 0; i < copyLen; i++) {
-          pkt[7 + i] = baseline[7 + i];
-        }
-      }
-
-      // 3. Set verified Cfg offsets according to Leobog ONE driver FillCfg disassembly:
-      // Cfg[3]  (wire pkt[7 + 3  = 10]): Debounce stage (1-5)
-      // Cfg[22] (wire pkt[7 + 22 = 29]): Tap setting (0=OFF, 1-10)
-      // Cfg[24] (wire pkt[7 + 24 = 31]): Sleep timeout in 30s units (2=1m, 4=2m, 6=3m, 10=5m)
-      pkt[7 + 3] = debounceStage; // pkt[10]
-      pkt[7 + 22] = tapVal;       // pkt[29]
-      pkt[7 + 24] = sleepUnits;   // pkt[31]
-
-      // Mirror to secondary / LowDaly offsets for maximum cross-revision firmware compatibility
-      pkt[7 + 2] = debounceStage; // pkt[9]
-      pkt[7 + 8] = tapVal;        // pkt[15]
-      pkt[2] = debounceStage;
-      pkt[8] = tapVal;
-
-      webhid.log(
-        `[Hardware Settings] Writing packet: pkt[10](Debounce)=${pkt[10]}, pkt[29](Tap)=${pkt[29]}, pkt[31](Sleep)=${pkt[31]}`
-      );
-
-      // 4. Send feature report 6
-      await dev.sendFeatureReport(6, pkt);
-      await new Promise((r) => setTimeout(r, 40));
-
-      // 5. Send latch confirmation
-      try {
-        await dev.sendFeatureReport(6, pkt);
-      } catch {
-        // Latch retry
-      }
-      await new Promise((r) => setTimeout(r, 50));
-
-      // 6. Re-read device config to verify
-      await rgbService.readDeviceConfig(true);
-
-      webhid.log(`[Hardware Settings] Successfully written and verified in Leobog Hi75c Pro internal EEPROM.`);
-      this.isApplying = false;
-      return {
-        success: true,
-        message: 'Tap, Sleep, and Debounce settings successfully saved to keyboard memory!',
-      };
-    } catch (err: any) {
-      webhid.log(`[Hardware Settings] Write error: ${err.message}`);
-      this.isApplying = false;
-      return {
-        success: false,
-        message: `Failed to write to hardware: ${err.message}. Please verify the keyboard is connected in Wired USB mode.`,
-      };
-    }
+    });
   }
 }
 

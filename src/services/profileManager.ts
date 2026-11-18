@@ -97,8 +97,8 @@ class ProfileManager {
         brightness: rgbState.brightness,
         speed: rgbState.speed,
         colorHex: rgbState.staticColor,
-        winLock: hwSettings.tapEnabled,
-        sleepSeconds: hwSettings.sleepTimeoutSeconds,
+        winLock: false,
+        sleepSeconds: hwSettings.sleepEnabled ? hwSettings.sleepTimeoutSeconds : 0,
         perKeyColors: { ...rgbState.perKeyColors },
       },
     };
@@ -219,88 +219,95 @@ class ProfileManager {
     this.saveSafetyBackup();
     webhid.log(`[Profile] Applying profile "${profile.name}" to keyboard...`);
 
-    try {
-      // Read current base and FN tables
-      const currentBase = await webhid.readBaseTable();
-      const currentFn = await webhid.readFnTable();
+    return await webhid.runExclusive(async () => {
+      try {
+        // Read current base and FN tables
+        const currentBase = await webhid.readBaseTable();
+        const currentFn = await webhid.readFnTable();
 
-      const newBase = new Uint8Array(currentBase);
-      const newFn = new Uint8Array(currentFn);
+        const newBase = new Uint8Array(currentBase);
+        const newFn = new Uint8Array(currentFn);
 
-      // Apply base layer
-      for (const [key, bytes] of Object.entries(profile.keymap.base)) {
-        const matrixIdx = this.resolveMatrixIdx(key);
-        if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
-          const offset = matrixIdx * 4;
-          const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
-          newBase[offset] = byteArr[0];
-          newBase[offset + 1] = byteArr[1];
-          newBase[offset + 2] = byteArr[2];
-          newBase[offset + 3] = byteArr[3];
+        // Apply base layer
+        for (const [key, bytes] of Object.entries(profile.keymap.base)) {
+          const matrixIdx = this.resolveMatrixIdx(key);
+          if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
+            const offset = matrixIdx * 4;
+            const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            newBase[offset] = byteArr[0];
+            newBase[offset + 1] = byteArr[1];
+            newBase[offset + 2] = byteArr[2];
+            newBase[offset + 3] = byteArr[3];
 
-          const usage = parseKeyRecordUsage(byteArr);
-          webhid.records.set(matrixIdx, {
-            matrixIdx,
-            hidUsage: usage,
-            originalUsage: usage,
-            bytes: byteArr,
-          });
+            const usage = parseKeyRecordUsage(byteArr);
+            webhid.records.set(matrixIdx, {
+              matrixIdx,
+              hidUsage: usage,
+              originalUsage: usage,
+              bytes: byteArr,
+            });
+          }
         }
+
+        // Apply fn layer
+        for (const [key, bytes] of Object.entries(profile.keymap.fn)) {
+          const matrixIdx = this.resolveMatrixIdx(key);
+          if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
+            const offset = matrixIdx * 4;
+            const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            newFn[offset] = byteArr[0];
+            newFn[offset + 1] = byteArr[1];
+            newFn[offset + 2] = byteArr[2];
+            newFn[offset + 3] = byteArr[3];
+
+            const usage = parseKeyRecordUsage(byteArr);
+            webhid.fnRecords.set(matrixIdx, {
+              matrixIdx,
+              hidUsage: usage,
+              originalUsage: usage,
+              bytes: byteArr,
+            });
+          }
+        }
+
+        // Write to hardware
+        await webhid.writeBaseTable(newBase);
+        await webhid.writeFnTable(newFn);
+        await webhid.readMatrixData();
+
+        // Apply lighting & global settings if available
+        if (profile.lighting) {
+          const rgbState = rgbService.getState();
+          const effectId = profile.lighting.effectId ?? rgbState.effectId;
+          const brightness = profile.lighting.brightness ?? rgbState.brightness;
+          const speed = profile.lighting.speed ?? rgbState.speed;
+          const colorHex = profile.lighting.colorHex ?? rgbState.staticColor;
+          await rgbService.setHardwareEffect(effectId, brightness, speed, false, colorHex);
+
+          if (profile.lighting.perKeyColors && Object.keys(profile.lighting.perKeyColors).length > 0) {
+            await rgbService.applyPerKeyPlanar(profile.lighting.perKeyColors);
+          }
+
+          if (profile.lighting.sleepSeconds !== undefined) {
+            hardwareSettingsService.updateSettings({
+              sleepTimeoutSeconds: profile.lighting.sleepSeconds,
+              sleepEnabled: profile.lighting.sleepSeconds > 0,
+            });
+            try {
+              await hardwareSettingsService.applyToHardware();
+            } catch (hwErr: any) {
+              webhid.log(`[Profile] Warning: could not apply sleep settings to hardware: ${hwErr.message}`);
+            }
+          }
+        }
+
+        webhid.log(`[Profile] Profile "${profile.name}" applied and verified successfully!`);
+        return { success: true, message: `Profile "${profile.name}" applied successfully!` };
+      } catch (err: any) {
+        webhid.log(`[Profile] Error applying profile: ${err.message}`);
+        return { success: false, message: `Failed to apply profile: ${err.message}` };
       }
-
-      // Apply fn layer
-      for (const [key, bytes] of Object.entries(profile.keymap.fn)) {
-        const matrixIdx = this.resolveMatrixIdx(key);
-        if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
-          const offset = matrixIdx * 4;
-          const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
-          newFn[offset] = byteArr[0];
-          newFn[offset + 1] = byteArr[1];
-          newFn[offset + 2] = byteArr[2];
-          newFn[offset + 3] = byteArr[3];
-
-          const usage = parseKeyRecordUsage(byteArr);
-          webhid.fnRecords.set(matrixIdx, {
-            matrixIdx,
-            hidUsage: usage,
-            originalUsage: usage,
-            bytes: byteArr,
-          });
-        }
-      }
-
-      // Write to hardware
-      await webhid.writeBaseTable(newBase);
-      await webhid.writeFnTable(newFn);
-      await webhid.readMatrixData();
-
-      // Apply lighting & global settings if available
-      if (profile.lighting) {
-        const rgbState = rgbService.getState();
-        const effectId = profile.lighting.effectId ?? rgbState.effectId;
-        const brightness = profile.lighting.brightness ?? rgbState.brightness;
-        const speed = profile.lighting.speed ?? rgbState.speed;
-        const colorHex = profile.lighting.colorHex ?? rgbState.staticColor;
-        await rgbService.setHardwareEffect(effectId, brightness, speed, false, colorHex);
-
-        if (profile.lighting.perKeyColors && Object.keys(profile.lighting.perKeyColors).length > 0) {
-          await rgbService.applyPerKeyPlanar(profile.lighting.perKeyColors);
-        }
-
-        if (profile.lighting.sleepSeconds !== undefined) {
-          hardwareSettingsService.updateSettings({
-            sleepTimeoutSeconds: profile.lighting.sleepSeconds,
-            sleepEnabled: profile.lighting.sleepSeconds > 0,
-          });
-        }
-      }
-
-      webhid.log(`[Profile] Profile "${profile.name}" applied and verified successfully!`);
-      return { success: true, message: `Profile "${profile.name}" applied successfully!` };
-    } catch (err: any) {
-      webhid.log(`[Profile] Error applying profile: ${err.message}`);
-      return { success: false, message: `Failed to apply profile: ${err.message}` };
-    }
+    });
   }
 
   // Restore safety backup from localStorage

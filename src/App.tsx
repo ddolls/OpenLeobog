@@ -76,16 +76,19 @@ export function App() {
         ...prev,
         ...update,
       }));
-    });
-
-    // Auto-reconnect to authorized device if already plugged in
-    webhid.autoReconnect().then((connected) => {
-      if (connected && (webhid as any).device) {
+      if (update.isConnected === false) {
+        inputManager.detachWebHIDDevice();
+        rgbService.detachDevice();
+        batteryService.detachDevice();
+      } else if (update.isConnected === true && (webhid as any).device) {
         inputManager.attachWebHIDDevice((webhid as any).device);
         rgbService.attachDevice((webhid as any).device);
         batteryService.attachDevice((webhid as any).device);
       }
     });
+
+    // Auto-reconnect to authorized device if already plugged in
+    webhid.autoReconnect();
 
     return unsubscribe;
   }, []);
@@ -98,12 +101,7 @@ export function App() {
   }, [userMode, activeTab]);
 
   const handleConnect = async () => {
-    const success = await webhid.connect();
-    if (success && (webhid as any).device) {
-      inputManager.attachWebHIDDevice((webhid as any).device);
-      rgbService.attachDevice((webhid as any).device);
-      batteryService.attachDevice((webhid as any).device);
-    }
+    await webhid.connect();
   };
 
   const handleApplyRemap = async (matrixIdx: number, newUsage: number) => {

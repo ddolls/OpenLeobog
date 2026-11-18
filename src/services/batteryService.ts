@@ -26,6 +26,7 @@ class BatteryService {
 
   private listeners: ((state: BatteryState) => void)[] = [];
   private attachedDevice: any = null;
+  private boundInputReportListener: ((e: any) => void) | null = null;
 
   constructor() {
     // Listen to WebHID updates
@@ -54,26 +55,44 @@ class BatteryService {
     return this.attachedDevice;
   }
 
+  public detachDevice() {
+    if (this.attachedDevice && this.boundInputReportListener) {
+      try {
+        this.attachedDevice.removeEventListener('inputreport', this.boundInputReportListener);
+      } catch {
+        // Ignore if device already closed
+      }
+    }
+    this.attachedDevice = null;
+    this.boundInputReportListener = null;
+  }
+
   public attachDevice(device: any) {
     if (!device) return;
+    if (this.attachedDevice === device && this.boundInputReportListener) {
+      return; // Already attached to this device instance
+    }
+    this.detachDevice();
     this.attachedDevice = device;
 
-    try {
-      device.addEventListener('inputreport', (e: any) => {
-        const { reportId, data } = e;
-        const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    this.boundInputReportListener = (e: any) => {
+      const { reportId, data } = e;
+      const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
-        // SinoWealth 2.4G wireless receiver sends battery reports on reportId 4, 5 or 6
-        if (reportId === 4 || reportId === 5) {
-          for (let i = 0; i < bytes.length; i++) {
-            const val = bytes[i];
-            if (val >= 10 && val <= 100 && (bytes[i + 1] === 0 || bytes[i + 1] === 1)) {
-              this.updateBatteryPercentage(val, bytes[i + 1] === 1);
-              break;
-            }
+      // SinoWealth 2.4G wireless receiver sends battery reports on reportId 4, 5 or 6
+      if (reportId === 4 || reportId === 5) {
+        for (let i = 0; i < bytes.length; i++) {
+          const val = bytes[i];
+          if (val >= 10 && val <= 100 && (bytes[i + 1] === 0 || bytes[i + 1] === 1)) {
+            this.updateBatteryPercentage(val, bytes[i + 1] === 1);
+            break;
           }
         }
-      });
+      }
+    };
+
+    try {
+      device.addEventListener('inputreport', this.boundInputReportListener);
     } catch (err) {
       console.warn('[BatteryService] inputreport attachment error:', err);
     }
@@ -81,6 +100,7 @@ class BatteryService {
 
   private handleHidUpdate(update: Partial<WebHIDState>) {
     if (update.isConnected === false) {
+      this.detachDevice();
       this.state = {
         percentage: 0,
         isCharging: false,

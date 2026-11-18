@@ -74,23 +74,11 @@ class RgbControllerService {
   private keepaliveTimer: any = null;
   private animInterval: any = null;
   private isSendingFrame = false;
-  private queuePromise: Promise<void> = Promise.resolve();
   private detectedModel: string = 'Leobog Hi75 C Pro';
 
-  // Mutual exclusion queue to prevent USB transaction collisions
+  // Mutual exclusion queue routed through unified WebHID queue to prevent USB transaction collisions
   private async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
-    let release: () => void;
-    const waitPromise = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const currentTail = this.queuePromise;
-    this.queuePromise = currentTail.then(() => waitPromise).catch(() => waitPromise);
-    try {
-      await currentTail;
-      return await fn();
-    } finally {
-      release!();
-    }
+    return webhid.runExclusive(fn);
   }
 
   constructor() {

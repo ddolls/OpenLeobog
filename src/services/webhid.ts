@@ -153,6 +153,24 @@ class WebHIDController {
   private wirelessClient: WirelessProtocolClient | null = null;
   private onBatterySynced?: (percent: number, charging: boolean) => void;
   private onConfigSynced?: (config: Uint8Array) => void;
+  private queuePromise: Promise<void> = Promise.resolve();
+  private isConnecting: boolean = false;
+
+  // Global mutual exclusion queue across all WebHID hardware operations
+  public async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    let release: () => void;
+    const waitPromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const currentTail = this.queuePromise;
+    this.queuePromise = currentTail.then(() => waitPromise).catch(() => waitPromise);
+    try {
+      await currentTail;
+      return await fn();
+    } finally {
+      release!();
+    }
+  }
 
   public records: Map<number, KeyRecord> = getDefaultOfflineRecords();
   public fnRecords: Map<number, KeyRecord> = getDefaultOfflineFnRecords();
@@ -240,13 +258,20 @@ class WebHIDController {
   }
 
   public async autoReconnect(): Promise<boolean> {
+    if (this.isConnecting || (this.device && this.device.opened)) {
+      return false;
+    }
     if (typeof navigator === 'undefined' || !(navigator as any).hid) {
       return false;
     }
+    this.isConnecting = true;
     try {
       const hidNav = (navigator as any).hid;
       const devices = await hidNav.getDevices();
-      if (!devices || devices.length === 0) return false;
+      if (!devices || devices.length === 0) {
+        this.isConnecting = false;
+        return false;
+      }
 
       // Look for 2.4G wireless receiver or wired keyboard
       const wirelessDev = devices.find((d: any) =>
@@ -265,15 +290,19 @@ class WebHIDController {
       const target = wirelessDev || wiredDev;
       if (target) {
         this.log('Auto-reconnecting to authorized LEOBOG device...');
-        return await this.connectDevice(target);
+        const res = await this.connectDevice(target);
+        this.isConnecting = false;
+        return res;
       }
     } catch (err: any) {
       this.log(`Auto-reconnect check: ${err.message}`);
     }
+    this.isConnecting = false;
     return false;
   }
 
   public async disconnect(): Promise<void> {
+    this.isConnecting = false;
     if (this.device) {
       try {
         if (this.device.opened) {
@@ -334,57 +363,65 @@ class WebHIDController {
   }
 
   public async connectDevice(targetDev: any): Promise<boolean> {
-    try {
-      if (!targetDev.opened) {
-        this.log('Opening WebHID interface...');
-        await targetDev.open();
+    return this.runExclusive(async () => {
+      try {
+        if (!targetDev.opened) {
+          this.log('Opening WebHID interface...');
+          await targetDev.open();
+        }
+        this.device = targetDev;
+
+        const isWireless =
+          targetDev.vendorId === WIRELESS_VENDOR_ID ||
+          (targetDev.productName || '').toLowerCase().includes('2.4g') ||
+          (targetDev.productName || '').toLowerCase().includes('dongle') ||
+          (targetDev.productName || '').toLowerCase().includes('receiver');
+
+        if (isWireless) {
+          this.wirelessClient = new WirelessProtocolClient(this.device);
+        } else {
+          this.wirelessClient = null;
+        }
+
+        const rawName = (this.device.productName || '').trim();
+        const devName = isWireless
+          ? 'LEOBOG Hi75c Pro (2.4G)'
+          : (!rawName || rawName.toLowerCase() === 'gaming keyboard')
+          ? 'LEOBOG Hi75c Pro'
+          : rawName;
+
+        const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
+        const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
+        const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
+
+        this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Mode: ${isWireless ? '2.4GHz Wireless' : 'Wired USB'}`);
+
+        this.notify({
+          isConnected: true,
+          deviceName: devName,
+          vendorId: vidHex,
+          productId: pidHex,
+          firmwareVersion: fwVersion,
+          isWireless,
+          isAsleep: false,
+        });
+
+        // Directly execute internal sync within this exclusive block
+        await this.internalSyncAllFromHardware();
+        return true;
+      } catch (err: any) {
+        this.log(`Connection error: ${err.message}`);
+        return false;
       }
-      this.device = targetDev;
-
-      const isWireless =
-        targetDev.vendorId === WIRELESS_VENDOR_ID ||
-        (targetDev.productName || '').toLowerCase().includes('2.4g') ||
-        (targetDev.productName || '').toLowerCase().includes('dongle') ||
-        (targetDev.productName || '').toLowerCase().includes('receiver');
-
-      if (isWireless) {
-        this.wirelessClient = new WirelessProtocolClient(this.device);
-      } else {
-        this.wirelessClient = null;
-      }
-
-      const rawName = (this.device.productName || '').trim();
-      const devName = isWireless
-        ? 'LEOBOG Hi75c Pro (2.4G)'
-        : (!rawName || rawName.toLowerCase() === 'gaming keyboard')
-        ? 'LEOBOG Hi75c Pro'
-        : rawName;
-
-      const vidHex = '0x' + (this.device.vendorId || 0x258A).toString(16).toUpperCase();
-      const pidHex = '0x' + (this.device.productId || 0x010C).toString(16).toUpperCase();
-      const fwVersion = isWireless ? 'V30.0.1 (2.4G)' : 'V8.0.0 (USB)';
-
-      this.log(`Successfully opened ${devName} (${vidHex}:${pidHex}) - Mode: ${isWireless ? '2.4GHz Wireless' : 'Wired USB'}`);
-
-      this.notify({
-        isConnected: true,
-        deviceName: devName,
-        vendorId: vidHex,
-        productId: pidHex,
-        firmwareVersion: fwVersion,
-        isWireless,
-        isAsleep: false,
-      });
-
-      await this.syncAllFromHardware();
-      return true;
-    } catch (err: any) {
-      this.log(`Connection error: ${err.message}`);
-      return false;
-    }
+    });
   }
 
   public async connect(): Promise<boolean> {
+    if (this.isConnecting) {
+      this.log('Connection already in progress...');
+      return false;
+    }
+    this.isConnecting = true;
     try {
       const hidNav = (navigator as any).hid;
       if (!hidNav) {
@@ -424,6 +461,7 @@ class WebHIDController {
 
         if (!devices || devices.length === 0) {
           this.log('No device selected by user in picker.');
+          this.isConnecting = false;
           return false;
         }
 
@@ -446,16 +484,26 @@ class WebHIDController {
         throw new Error('No valid Leobog Hi75 C Pro device found.');
       }
 
-      return await this.connectDevice(matched);
+      const res = await this.connectDevice(matched);
+      this.isConnecting = false;
+      return res;
     } catch (err: any) {
+      this.isConnecting = false;
       this.log(`Connection error: ${err.message}`);
       alert(`Connection failed: ${err.message}\n\nTips:\n1. Close official LEOBOG software if running.\n2. Ensure keyboard is connected via USB cable or 2.4G receiver.\n3. Re-plug USB cable/receiver and try again.`);
       return false;
     }
   }
 
-  // Full hardware state synchronization
+  // Full hardware state synchronization (public interface with mutex queue)
   public async syncAllFromHardware(): Promise<boolean> {
+    return this.runExclusive(async () => {
+      return await this.internalSyncAllFromHardware();
+    });
+  }
+
+  // Internal unqueued implementation called safely inside runExclusive blocks
+  private async internalSyncAllFromHardware(): Promise<boolean> {
     if (!this.device || !this.device.opened) return false;
 
     this.notify({ isSyncing: true, isAsleep: false });
@@ -674,43 +722,45 @@ class WebHIDController {
   }
 
   public async writeFnKeyRemapRaw(matrixIdx: number, rawBytes: [number, number, number, number]): Promise<boolean> {
-    if (!this.device || !this.device.opened) {
-      this.log(`[Offline Mode] Simulated FN key remap for matrix ${matrixIdx} -> [${rawBytes.join(', ')}]`);
-      return true;
-    }
-
-    try {
-      this.log(`Reading current FN table (readFnTable)...`);
-      const fnBase = await this.readFnTable();
-      const working = new Uint8Array(fnBase);
-
-      const offset = matrixIdx * 4;
-      this.log(`Staging FN matrix #${matrixIdx} (offset ${offset}) to [${rawBytes.join(', ')}]...`);
-
-      working[offset] = rawBytes[0];
-      working[offset + 1] = rawBytes[1];
-      working[offset + 2] = rawBytes[2];
-      working[offset + 3] = rawBytes[3];
-
-      this.log(`Writing FN table (writeFnTable)...`);
-      await this.writeFnTable(working);
-
-      this.log('Verifying FN write with readFnTable()...');
-      const got = await this.readFnTable();
-      const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
-      this.log(`Read-back check for FN Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
-
-      if (verifiedBytes.join(',') !== rawBytes.join(',')) {
-        throw new Error(`Verification failed at FN matrix ${matrixIdx}: expected [${rawBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+    return this.runExclusive(async () => {
+      if (!this.device || !this.device.opened) {
+        this.log(`[Offline Mode] Simulated FN key remap for matrix ${matrixIdx} -> [${rawBytes.join(', ')}]`);
+        return true;
       }
 
-      this.log(`FN APPLY VERIFIED: Matrix #${matrixIdx} FN shortcut successfully remapped!`);
-      await this.readMatrixData();
-      return true;
-    } catch (err: any) {
-      this.log(`FN APPLY ERROR: ${err.message}`);
-      return false;
-    }
+      try {
+        this.log(`Reading current FN table (readFnTable)...`);
+        const fnBase = await this.readFnTable();
+        const working = new Uint8Array(fnBase);
+
+        const offset = matrixIdx * 4;
+        this.log(`Staging FN matrix #${matrixIdx} (offset ${offset}) to [${rawBytes.join(', ')}]...`);
+
+        working[offset] = rawBytes[0];
+        working[offset + 1] = rawBytes[1];
+        working[offset + 2] = rawBytes[2];
+        working[offset + 3] = rawBytes[3];
+
+        this.log(`Writing FN table (writeFnTable)...`);
+        await this.writeFnTable(working);
+
+        this.log('Verifying FN write with readFnTable()...');
+        const got = await this.readFnTable();
+        const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
+        this.log(`Read-back check for FN Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
+
+        if (verifiedBytes.join(',') !== rawBytes.join(',')) {
+          throw new Error(`Verification failed at FN matrix ${matrixIdx}: expected [${rawBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+        }
+
+        this.log(`FN APPLY VERIFIED: Matrix #${matrixIdx} FN shortcut successfully remapped!`);
+        await this.readMatrixData();
+        return true;
+      } catch (err: any) {
+        this.log(`FN APPLY ERROR: ${err.message}`);
+        return false;
+      }
+    });
   }
 
   public async readMatrixData(): Promise<Uint8Array | null> {
@@ -818,85 +868,89 @@ class WebHIDController {
 
   // Exact v1.2 Apply Key Remap flow with verified readBase verification
   public async writeKeyRemap(matrixIdx: number, newUsage: number): Promise<boolean> {
-    if (!this.device || !this.device.opened) {
-      this.log(`[Offline Mode] Simulated key remap for matrix ${matrixIdx} -> HID 0x${newUsage.toString(16)}`);
-      return true;
-    }
-
-    try {
-      this.log(`Reading current base table (readBase)...`);
-      const base = await this.readBaseTable();
-      const working = new Uint8Array(base);
-
-      const newBytes = encodeKeyRecordBytes(newUsage);
-      const offset = matrixIdx * 4;
-      this.log(`Staging matrix #${matrixIdx} (offset ${offset}) to [${newBytes.join(', ')}]...`);
-
-      working[offset] = newBytes[0];
-      working[offset + 1] = newBytes[1];
-      working[offset + 2] = newBytes[2];
-      working[offset + 3] = newBytes[3];
-
-      this.log(`Writing base table (writeBase)...`);
-      await this.writeBaseTable(working);
-
-      this.log('Verifying write with readBaseTable()...');
-      const got = await this.readBaseTable();
-      const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
-      this.log(`Read-back check for Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
-
-      if (verifiedBytes.join(',') !== newBytes.join(',')) {
-        throw new Error(`Verification failed at matrix ${matrixIdx}: expected [${newBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+    return this.runExclusive(async () => {
+      if (!this.device || !this.device.opened) {
+        this.log(`[Offline Mode] Simulated key remap for matrix ${matrixIdx} -> HID 0x${newUsage.toString(16)}`);
+        return true;
       }
 
-      this.log(`APPLY VERIFIED: Matrix #${matrixIdx} successfully remapped and verified! Fn table was not written.`);
-      await this.readMatrixData();
-      return true;
-    } catch (err: any) {
-      this.log(`APPLY ERROR: ${err.message}`);
-      return false;
-    }
+      try {
+        this.log(`Reading current base table (readBase)...`);
+        const base = await this.readBaseTable();
+        const working = new Uint8Array(base);
+
+        const newBytes = encodeKeyRecordBytes(newUsage);
+        const offset = matrixIdx * 4;
+        this.log(`Staging matrix #${matrixIdx} (offset ${offset}) to [${newBytes.join(', ')}]...`);
+
+        working[offset] = newBytes[0];
+        working[offset + 1] = newBytes[1];
+        working[offset + 2] = newBytes[2];
+        working[offset + 3] = newBytes[3];
+
+        this.log(`Writing base table (writeBase)...`);
+        await this.writeBaseTable(working);
+
+        this.log('Verifying write with readBaseTable()...');
+        const got = await this.readBaseTable();
+        const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
+        this.log(`Read-back check for Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
+
+        if (verifiedBytes.join(',') !== newBytes.join(',')) {
+          throw new Error(`Verification failed at matrix ${matrixIdx}: expected [${newBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+        }
+
+        this.log(`APPLY VERIFIED: Matrix #${matrixIdx} successfully remapped and verified! Fn table was not written.`);
+        await this.readMatrixData();
+        return true;
+      } catch (err: any) {
+        this.log(`APPLY ERROR: ${err.message}`);
+        return false;
+      }
+    });
   }
 
   // Write raw 4-byte combo record (e.g. [0, 0x03, 0, 0x06] for Ctrl+Shift+C)
   public async writeKeyRemapRaw(matrixIdx: number, rawBytes: [number, number, number, number]): Promise<boolean> {
-    if (!this.device || !this.device.opened) {
-      this.log(`[Offline Mode] Simulated combo remap for matrix ${matrixIdx} -> [${rawBytes.join(', ')}]`);
-      return true;
-    }
-
-    try {
-      this.log(`Reading current base table (readBase)...`);
-      const base = await this.readBaseTable();
-      const working = new Uint8Array(base);
-
-      const offset = matrixIdx * 4;
-      this.log(`Staging combo at matrix #${matrixIdx} (offset ${offset}) to [${rawBytes.join(', ')}]...`);
-
-      working[offset] = rawBytes[0];
-      working[offset + 1] = rawBytes[1];
-      working[offset + 2] = rawBytes[2];
-      working[offset + 3] = rawBytes[3];
-
-      this.log(`Writing base table (writeBase)...`);
-      await this.writeBaseTable(working);
-
-      this.log('Verifying write with readBaseTable()...');
-      const got = await this.readBaseTable();
-      const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
-      this.log(`Read-back check for Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
-
-      if (verifiedBytes.join(',') !== rawBytes.join(',')) {
-        throw new Error(`Verification failed at matrix ${matrixIdx}: expected [${rawBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+    return this.runExclusive(async () => {
+      if (!this.device || !this.device.opened) {
+        this.log(`[Offline Mode] Simulated combo remap for matrix ${matrixIdx} -> [${rawBytes.join(', ')}]`);
+        return true;
       }
 
-      this.log(`COMBO VERIFIED: Matrix #${matrixIdx} combo remap applied and verified!`);
-      await this.readMatrixData();
-      return true;
-    } catch (err: any) {
-      this.log(`APPLY ERROR: ${err.message}`);
-      return false;
-    }
+      try {
+        this.log(`Reading current base table (readBase)...`);
+        const base = await this.readBaseTable();
+        const working = new Uint8Array(base);
+
+        const offset = matrixIdx * 4;
+        this.log(`Staging combo at matrix #${matrixIdx} (offset ${offset}) to [${rawBytes.join(', ')}]...`);
+
+        working[offset] = rawBytes[0];
+        working[offset + 1] = rawBytes[1];
+        working[offset + 2] = rawBytes[2];
+        working[offset + 3] = rawBytes[3];
+
+        this.log(`Writing base table (writeBase)...`);
+        await this.writeBaseTable(working);
+
+        this.log('Verifying write with readBaseTable()...');
+        const got = await this.readBaseTable();
+        const verifiedBytes = [got[offset], got[offset + 1], got[offset + 2], got[offset + 3]];
+        this.log(`Read-back check for Matrix #${matrixIdx}: [${verifiedBytes.join(', ')}]`);
+
+        if (verifiedBytes.join(',') !== rawBytes.join(',')) {
+          throw new Error(`Verification failed at matrix ${matrixIdx}: expected [${rawBytes.join(', ')}], got [${verifiedBytes.join(', ')}]`);
+        }
+
+        this.log(`COMBO VERIFIED: Matrix #${matrixIdx} combo remap applied and verified!`);
+        await this.readMatrixData();
+        return true;
+      } catch (err: any) {
+        this.log(`APPLY ERROR: ${err.message}`);
+        return false;
+      }
+    });
   }
 
   // --- SURGICAL RECOVERY: Restores Fn record (Matrix 59 = [13, 0, 0, 0]) and RAlt (Matrix 53 = [0, 64, 0, 0]) ---
@@ -910,42 +964,44 @@ class WebHIDController {
 
   // --- FACTORY RESET: Restores full Table 0 base matrix to factory stock in one atomic write ---
   public async resetBaseTableToFactory(): Promise<boolean> {
-    const factoryTable = new Uint8Array(512);
-    factoryTable.set(PRISTINE_STAGE5_MATRIX[0], 0);
+    return this.runExclusive(async () => {
+      const factoryTable = new Uint8Array(512);
+      factoryTable.set(PRISTINE_STAGE5_MATRIX[0], 0);
 
-    if (!this.device || !this.device.opened) {
-      this.log('[Offline Mode] Simulated factory reset for base matrix table.');
-      return true;
-    }
+      if (!this.device || !this.device.opened) {
+        this.log('[Offline Mode] Simulated factory reset for base matrix table.');
+        return true;
+      }
 
-    try {
-      this.log('Resetting base matrix to factory stock (writeBaseTable 512 bytes)...');
-      await this.writeBaseTable(factoryTable);
+      try {
+        this.log('Resetting base matrix to factory stock (writeBaseTable 512 bytes)...');
+        await this.writeBaseTable(factoryTable);
 
-      // Settle delay for hardware flash write
-      await new Promise(r => setTimeout(r, 100));
+        // Settle delay for hardware flash write
+        await new Promise(r => setTimeout(r, 100));
 
-      this.log('Verifying factory base table write with readBaseTable()...');
-      const readBack = await this.readBaseTable();
-      let matches = true;
-      for (let i = 0; i < 360; i++) {
-        if (readBack[i] !== factoryTable[i]) {
-          matches = false;
-          break;
+        this.log('Verifying factory base table write with readBaseTable()...');
+        const readBack = await this.readBaseTable();
+        let matches = true;
+        for (let i = 0; i < 360; i++) {
+          if (readBack[i] !== factoryTable[i]) {
+            matches = false;
+            break;
+          }
         }
-      }
 
-      if (!matches) {
-        throw new Error('Verification failed: factory matrix does not match read-back buffer');
-      }
+        if (!matches) {
+          throw new Error('Verification failed: factory matrix does not match read-back buffer');
+        }
 
-      this.log('FACTORY RESET VERIFIED: Base matrix successfully restored to factory stock mapping!');
-      await this.readMatrixData();
-      return true;
-    } catch (err: any) {
-      this.log(`FACTORY RESET ERROR: ${err.message}`);
-      return false;
-    }
+        this.log('FACTORY RESET VERIFIED: Base matrix successfully restored to factory stock mapping!');
+        await this.readMatrixData();
+        return true;
+      } catch (err: any) {
+        this.log(`FACTORY RESET ERROR: ${err.message}`);
+        return false;
+      }
+    });
   }
 
   // BYTE-BY-BYTE DIFF UTILITY (Calculates A ↔ B differences)

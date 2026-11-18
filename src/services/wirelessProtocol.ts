@@ -229,15 +229,30 @@ export class WirelessProtocolClient {
   private waitForReport(
     predicate: (pkt: ParsedPacket) => boolean,
     timeoutMs: number
-  ): Promise<ParsedPacket | null> {
-    return new Promise((resolve) => {
+  ): { promise: Promise<ParsedPacket | null>; cancel: () => void } {
+    let cancelFn: () => void = () => {};
+    const promise = new Promise<ParsedPacket | null>((resolve) => {
       let settled = false;
-      const timer = setTimeout(() => {
+      const cleanup = () => {
         if (!settled) {
           settled = true;
-          this.device.removeEventListener('inputreport', onReport);
-          resolve(null);
+          clearTimeout(timer);
+          try {
+            this.device.removeEventListener('inputreport', onReport);
+          } catch {
+            // Ignore if device disconnected
+          }
         }
+      };
+
+      cancelFn = () => {
+        cleanup();
+        resolve(null);
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(null);
       }, timeoutMs);
 
       const onReport = (ev: HIDInputReportEvent) => {
@@ -248,14 +263,19 @@ export class WirelessProtocolClient {
         if (!parsed || parsed.hasError || !predicate(parsed)) {
           return;
         }
-        settled = true;
-        clearTimeout(timer);
-        this.device.removeEventListener('inputreport', onReport);
+        cleanup();
         resolve(parsed);
       };
 
-      this.device.addEventListener('inputreport', onReport);
+      try {
+        this.device.addEventListener('inputreport', onReport);
+      } catch {
+        cleanup();
+        resolve(null);
+      }
     });
+
+    return { promise, cancel: cancelFn };
   }
 
   private collectReadAttempt(
@@ -343,15 +363,20 @@ export class WirelessProtocolClient {
         let acked = false;
 
         for (let attempt = 0; attempt < READ_MAX_ATTEMPTS; attempt++) {
-          const ackPromise = this.waitForReport(
+          const waiter = this.waitForReport(
             (pkt) => pkt.cmd === cmd && pkt.pktIdx === i,
             READ_TIMEOUT_MS
           );
-          await this.device.sendReport(WIRELESS_REPORT_ID, packet as unknown as BufferSource);
-          const ack = await ackPromise;
-          if (ack) {
-            acked = true;
-            break;
+          try {
+            await this.device.sendReport(WIRELESS_REPORT_ID, packet as unknown as BufferSource);
+            const ack = await waiter.promise;
+            if (ack) {
+              acked = true;
+              break;
+            }
+          } catch (sendErr) {
+            waiter.cancel();
+            throw sendErr;
           }
         }
 

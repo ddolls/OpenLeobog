@@ -173,7 +173,11 @@ class InputManager {
   private knobListeners: ((knob: KnobState) => void)[] = [];
 
   private knobState: KnobState = { rotation: 0, lastAction: null, isActive: false };
-  private knobTimer: any = null;
+  private knobRotateTimer: any = null;
+  private knobMuteTimer: any = null;
+
+  private attachedDevice: any = null;
+  private boundInputReportListener: ((e: any) => void) | null = null;
 
   private history: KeyHistoryItem[] = [];
   private debugLogs: DebugLogEntry[] = [];
@@ -261,38 +265,52 @@ class InputManager {
 
   public triggerKnobAction(action: 'up' | 'down' | 'mute') {
     pollingRateService.recordEvent('dom', `Knob_${action}`);
-    if (action === 'up') {
-      this.knobState.rotation += 18;
-      this.knobState.lastAction = 'up';
+    if (action === 'up' || action === 'down') {
+      if (action === 'up') {
+        this.knobState.rotation += 18;
+        this.knobState.lastAction = 'up';
+        this.pressedCodes.add('AudioVolumeUp');
+        this.logDebug('DOM', 'AudioVolumeUp', 'Vol+', 84);
+      } else {
+        this.knobState.rotation -= 18;
+        this.knobState.lastAction = 'down';
+        this.pressedCodes.add('AudioVolumeDown');
+        this.logDebug('DOM', 'AudioVolumeDown', 'Vol-', 84);
+      }
       this.knobState.isActive = true;
-      this.pressedCodes.add('AudioVolumeUp');
-      this.logDebug('DOM', 'AudioVolumeUp', 'Vol+', 84);
-    } else if (action === 'down') {
-      this.knobState.rotation -= 18;
-      this.knobState.lastAction = 'down';
-      this.knobState.isActive = true;
-      this.pressedCodes.add('AudioVolumeDown');
-      this.logDebug('DOM', 'AudioVolumeDown', 'Vol-', 84);
+      this.pressedMatrixIndices.add(84);
+      this.notify();
+
+      if (this.knobRotateTimer) clearTimeout(this.knobRotateTimer);
+      this.knobRotateTimer = setTimeout(() => {
+        this.pressedCodes.delete('AudioVolumeUp');
+        this.pressedCodes.delete('AudioVolumeDown');
+        if (!this.pressedCodes.has('AudioVolumeMute')) {
+          this.pressedMatrixIndices.delete(84);
+          this.knobState.isActive = false;
+          this.knobState.lastAction = null;
+        }
+        this.notify();
+      }, 280);
     } else {
       this.knobState.lastAction = 'mute';
       this.knobState.isActive = true;
       this.pressedCodes.add('AudioVolumeMute');
+      this.pressedMatrixIndices.add(84);
       this.logDebug('DOM', 'AudioVolumeMute', 'Mute', 84);
-    }
-
-    this.pressedMatrixIndices.add(84);
-    this.notify();
-
-    if (this.knobTimer) clearTimeout(this.knobTimer);
-    this.knobTimer = setTimeout(() => {
-      this.pressedMatrixIndices.delete(84);
-      this.pressedCodes.delete('AudioVolumeUp');
-      this.pressedCodes.delete('AudioVolumeDown');
-      this.pressedCodes.delete('AudioVolumeMute');
-      this.knobState.isActive = false;
-      this.knobState.lastAction = null;
       this.notify();
-    }, 280);
+
+      if (this.knobMuteTimer) clearTimeout(this.knobMuteTimer);
+      this.knobMuteTimer = setTimeout(() => {
+        this.pressedCodes.delete('AudioVolumeMute');
+        if (!this.pressedCodes.has('AudioVolumeUp') && !this.pressedCodes.has('AudioVolumeDown')) {
+          this.pressedMatrixIndices.delete(84);
+          this.knobState.isActive = false;
+          this.knobState.lastAction = null;
+        }
+        this.notify();
+      }, 280);
+    }
   }
 
   public getKnobState(): KnobState {
@@ -357,30 +375,50 @@ class InputManager {
     this.notify();
   }
 
+  public detachWebHIDDevice() {
+    if (this.attachedDevice && this.boundInputReportListener) {
+      try {
+        this.attachedDevice.removeEventListener('inputreport', this.boundInputReportListener);
+      } catch {
+        // Ignore if device already closed
+      }
+    }
+    this.attachedDevice = null;
+    this.boundInputReportListener = null;
+  }
+
   public attachWebHIDDevice(device: any) {
     if (!device) return;
+    if (this.attachedDevice === device && this.boundInputReportListener) {
+      return; // Already attached to this instance
+    }
+    this.detachWebHIDDevice();
+    this.attachedDevice = device;
+
+    this.boundInputReportListener = (e: any) => {
+      pollingRateService.recordEvent('webhid', `HID_${e.reportId}`);
+      const { reportId, data } = e;
+      const rawBytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      const hex = Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+
+      // Check if report contains consumer control / volume events
+      const hasVolUp = rawBytes.includes(0xE9) || (reportId === 2 && (rawBytes[0] & 0x01 || rawBytes[1] & 0x01));
+      const hasVolDown = rawBytes.includes(0xEA) || (reportId === 2 && (rawBytes[0] & 0x02 || rawBytes[1] & 0x02));
+      const hasMute = rawBytes.includes(0xE2) || rawBytes.includes(0xCD) || (reportId === 2 && (rawBytes[0] & 0x04 || rawBytes[1] & 0x04));
+
+      if (hasVolUp) {
+        this.triggerKnobAction('up');
+      } else if (hasVolDown) {
+        this.triggerKnobAction('down');
+      } else if (hasMute) {
+        this.triggerKnobAction('mute');
+      }
+
+      this.logDebug('WebHID', 'HID_REPORT', `Report ${reportId}`, null, reportId, hex);
+    };
+
     try {
-      device.addEventListener('inputreport', (e: any) => {
-        pollingRateService.recordEvent('webhid', `HID_${e.reportId}`);
-        const { reportId, data } = e;
-        const rawBytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-        const hex = Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
-
-        // Check if report contains consumer control / volume events
-        const hasVolUp = rawBytes.includes(0xE9) || (reportId === 2 && (rawBytes[0] & 0x01 || rawBytes[1] & 0x01));
-        const hasVolDown = rawBytes.includes(0xEA) || (reportId === 2 && (rawBytes[0] & 0x02 || rawBytes[1] & 0x02));
-        const hasMute = rawBytes.includes(0xE2) || rawBytes.includes(0xCD) || (reportId === 2 && (rawBytes[0] & 0x04 || rawBytes[1] & 0x04));
-
-        if (hasVolUp) {
-          this.triggerKnobAction('up');
-        } else if (hasVolDown) {
-          this.triggerKnobAction('down');
-        } else if (hasMute) {
-          this.triggerKnobAction('mute');
-        }
-
-        this.logDebug('WebHID', 'HID_REPORT', `Report ${reportId}`, null, reportId, hex);
-      });
+      device.addEventListener('inputreport', this.boundInputReportListener);
     } catch (err) {
       console.warn('WebHID inputreport listener error:', err);
     }
