@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { KeyboardGrid } from './components/KeyboardGrid';
@@ -13,6 +13,7 @@ import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ModeSelectionModal } from './components/ModeSelectionModal';
 import { SocialModal } from './components/SocialModal';
 import { VersionModal } from './components/VersionModal';
+import { WirelessWarningModal } from './components/WirelessWarningModal';
 import { webhid, PRISTINE_STAGE5_MATRIX, type WebHIDState } from './services/webhid';
 import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from './types/hid';
 import { SwitchTesterWidget } from './components/SwitchTesterWidget';
@@ -49,8 +50,10 @@ export function App() {
   const [isModeModalOpen, setIsModeModalOpen] = useState<boolean>(true);
   const [isSocialModalOpen, setIsSocialModalOpen] = useState<boolean>(false);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState<boolean>(false);
+  const [isWirelessWarningOpen, setIsWirelessWarningOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [selectedMatrixIdx, setSelectedMatrixIdx] = useState<number | null>(null);
+  const prevConnectedRef = useRef<boolean>(false);
   
   // State from webhid service
   const [hidState, setHidState] = useState<WebHIDState>(() => ({
@@ -106,6 +109,20 @@ export function App() {
       setActiveTab('overview');
     }
   }, [hidState.isConnected, hidState.isWireless, activeTab]);
+
+  // Show warning popup when keyboard connects in 2.4GHz wireless dongle mode
+  useEffect(() => {
+    const isNowConnected = hidState.isConnected;
+    const wasConnected = prevConnectedRef.current;
+    prevConnectedRef.current = isNowConnected;
+
+    if (!wasConnected && isNowConnected && hidState.isWireless) {
+      const isDismissed = localStorage.getItem('leobog_dismiss_wireless_warning') === 'true';
+      if (!isDismissed) {
+        setIsWirelessWarningOpen(true);
+      }
+    }
+  }, [hidState.isConnected, hidState.isWireless]);
 
   const handleConnect = async () => {
     await webhid.connect();
@@ -276,6 +293,7 @@ export function App() {
           isWireless={hidState.isWireless}
           isAsleep={hidState.isAsleep}
           isSyncing={hidState.isSyncing}
+          onOpenWirelessWarning={() => setIsWirelessWarningOpen(true)}
         />
 
         <main className="flex-1 px-3.5 sm:px-6 md:px-10 pb-28 md:pb-10 space-y-4 md:space-y-6 overflow-y-auto">
@@ -418,6 +436,12 @@ export function App() {
       <VersionModal
         isOpen={isVersionModalOpen}
         onClose={() => setIsVersionModalOpen(false)}
+      />
+
+      {/* 2.4GHz Wireless Volatile Memory Notice Modal */}
+      <WirelessWarningModal
+        isOpen={isWirelessWarningOpen}
+        onClose={() => setIsWirelessWarningOpen(false)}
       />
     </div>
   );

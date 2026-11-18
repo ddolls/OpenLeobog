@@ -15,6 +15,7 @@ interface HeaderProps {
   isWireless?: boolean;
   isAsleep?: boolean;
   isSyncing?: boolean;
+  onOpenWirelessWarning?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   isWireless = false,
   isAsleep = false,
   isSyncing = false,
+  onOpenWirelessWarning,
 }) => {
   const [batteryState, setBatteryState] = useState<BatteryState>(batteryService.getState());
 
@@ -78,8 +80,19 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Battery Telemetry Badge */}
         {isConnected && (
           <div
-            title={`Battery Status: ${batteryState.statusText}\nEstimated Runtime: ~${batteryState.estimatedHoursRemaining} hrs\nVoltage: ${batteryState.voltageEstimate}V (4000mAh LiPo)`}
-            className={`px-2.5 sm:px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all cursor-default select-none ${
+            title={
+              batteryState.isWireless
+                ? `Battery Status: ${batteryState.statusText}\nEstimated Runtime: ~${batteryState.estimatedHoursRemaining} hrs\nVoltage: ${batteryState.voltageEstimate}V (4000mAh LiPo)\nMode: 2.4GHz Wireless (SRAM active) - Click to view notice`
+                : `Battery Status: ${batteryState.statusText}\nEstimated Runtime: ~${batteryState.estimatedHoursRemaining} hrs\nVoltage: ${batteryState.voltageEstimate}V (4000mAh LiPo)\nMode: Wired USB (Flash active)`
+            }
+            onClick={() => {
+              if (batteryState.isWireless && onOpenWirelessWarning) {
+                onOpenWirelessWarning();
+              }
+            }}
+            className={`px-2.5 sm:px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all select-none ${
+              batteryState.isWireless && onOpenWirelessWarning ? 'cursor-pointer hover:border-amber-500/50' : 'cursor-default'
+            } ${
               batteryState.isCharging
                 ? 'bg-emerald-950/40 border-emerald-800/80 text-emerald-300'
                 : batteryState.percentage <= 20
@@ -92,8 +105,8 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[10px] text-zinc-500 flex items-center gap-1 font-mono">
               {batteryState.isWireless ? (
                 <>
-                  <Wifi className="w-3 h-3 text-cyan-400" />
-                  <span className="hidden xs:inline">2.4G</span>
+                  <Wifi className="w-3 h-3 text-amber-400" />
+                  <span className="hidden xs:inline text-amber-300">2.4G</span>
                 </>
               ) : (
                 <>
