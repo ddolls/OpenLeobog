@@ -591,11 +591,6 @@ class RgbControllerService {
             }
           }
 
-          // For Static mode (ID 1) with custom color, transmit planar RGB map
-          if (effectId === 1 && !colorful) {
-            await this.writeStaticColorProfile(normalizedColor);
-          }
-
           await wirelessClient.writeConfig(newCfg);
 
           const config136 = new Uint8Array(136);
@@ -918,7 +913,7 @@ class RgbControllerService {
     }
   }
 
-  // Apply Planar Per-Key RGB (CMD 0x06) + Save Custom Profile
+  // Apply Planar Per-Key RGB (CMD 0x02) + Save Custom Profile (CMD 0x04)
   public async applyPerKeyPlanar(perKeyColors: Record<number, string>): Promise<boolean> {
     this.stopSoftwareAnimation();
     this.stopKeepalive();
@@ -926,7 +921,7 @@ class RgbControllerService {
     this.notify({
       perKeyColors,
       customMode: true,
-      effectId: 18, // Mode 18 (0x12): Custom User Matrix Mode
+      effectId: 32, // Mode 32 (0x20): Per-Key Custom RGB in SinoWealth 2.4G firmware
       isDirectStreaming: false,
       activeSoftwareAnim: null,
     });
@@ -941,11 +936,20 @@ class RgbControllerService {
       return this.runExclusive(async () => {
         try {
           webhid.log(`[RGB 2.4G] Uploading per-key planar RGB colors (${Object.keys(perKeyColors).length} keys)...`);
-          let rgb378: Uint8Array;
-          try {
-            rgb378 = await wirelessClient.readRgbMap();
-          } catch {
-            rgb378 = new Uint8Array(378);
+
+          // 1. Build 378-byte planar RGB map: R[0..125], G[126..251], B[252..377]
+          const rgb378 = new Uint8Array(378);
+
+          // If updating a partial subset (<80 keys painted), retain other keys from keyboard
+          if (Object.keys(perKeyColors).length < 80) {
+            try {
+              const existingRgb = await wirelessClient.readRgbMap();
+              if (existingRgb && existingRgb.length === 378) {
+                rgb378.set(existingRgb);
+              }
+            } catch {
+              // Ignore read failure and start with blank
+            }
           }
 
           for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
@@ -958,11 +962,7 @@ class RgbControllerService {
             }
           }
 
-          // Step 1: Write RGB color map first
-          await wirelessClient.writeRgbMap(rgb378);
-          await new Promise((r) => setTimeout(r, 60));
-
-          // Step 2: Write configuration for Custom Per-Key Mode (flag = 1, effect = 18)
+          // 2. Prepare configuration for Per-Key Custom Mode
           let cfg: Uint8Array;
           try {
             cfg = await wirelessClient.readConfig();
@@ -972,27 +972,34 @@ class RgbControllerService {
           const newCfg = new Uint8Array(128);
           newCfg.set(cfg);
 
-          // Enable Custom Mode (flag = 1, effect = 18 / 0x12)
+          // Enable Custom Mode (flag = 1, effect = 32 / 0x20)
           newCfg[9] = 0x01; // customFlag = 1
-          newCfg[10] = 0x12; // effect 18 (0x12) = Custom User Matrix Mode!
+          newCfg[10] = 32;  // effectId = 32 (Per-Key Custom in ckieking / SinoWealth firmware)
 
-          // Configure brightness for Effect 18 (slot 17 in config, offset 56 + 2*18 = 92)
+          // Hardware brightness scale (0..9, default 7..9)
           const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
           const hwBrightness = currentBrightness <= 4
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, currentBrightness))] || 7
             : Math.min(9, Math.max(0, currentBrightness));
 
-          newCfg[92] = hwBrightness;
-          newCfg[93] = 0x20;
-
-          // Also set brightness for Effect 1 (offset 58)
-          newCfg[58] = hwBrightness;
-          newCfg[59] = 0x27; // multicolor
+          // Set slot 0 (offset 58) brightness and ensure all slots have active brightness
+          for (let i = 0; i < 24; i++) {
+            const base = 58 + i * 2;
+            if (i === 0 || !newCfg[base]) {
+              newCfg[base] = hwBrightness;
+            }
+          }
 
           // Magic trailer bytes
           newCfg[126] = 0x5a;
           newCfg[127] = 0xa5;
+
+          // Step 1: Write configuration FIRST (switches keyboard microcontroller into custom matrix mode)
           await wirelessClient.writeConfig(newCfg);
+          await new Promise((r) => setTimeout(r, 60));
+
+          // Step 2: Write RGB color map (CMD 0x02, 378 bytes)
+          await wirelessClient.writeRgbMap(rgb378);
 
           const config136 = new Uint8Array(136);
           config136[0] = 0x84;
