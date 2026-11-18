@@ -49,6 +49,79 @@ export const HW_COLOR_PRESETS = [
   { index: 6, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
 ];
 
+export const PALETTE_EFFECT_COUNT = 23;
+export const PALETTE_COLORS_PER_EFFECT = 7;
+export const PALETTE_TAIL_SIZE = 7;
+export const PALETTE_SIZE = PALETTE_EFFECT_COUNT * PALETTE_COLORS_PER_EFFECT * 3 + PALETTE_TAIL_SIZE; // 490 bytes
+
+export interface PaletteData {
+  effects: RGBColor[][];
+  tail: Uint8Array;
+  raw: Uint8Array;
+}
+
+export function decodePalette(raw: Uint8Array): PaletteData {
+  if (raw.length !== PALETTE_SIZE) {
+    throw new Error(`Invalid palette length: expected ${PALETTE_SIZE}, got ${raw.length}`);
+  }
+  const effects: RGBColor[][] = [];
+  let offset = 0;
+  for (let e = 0; e < PALETTE_EFFECT_COUNT; e++) {
+    const row: RGBColor[] = [];
+    for (let c = 0; c < PALETTE_COLORS_PER_EFFECT; c++) {
+      row.push({
+        r: raw[offset],
+        g: raw[offset + 1],
+        b: raw[offset + 2],
+      });
+      offset += 3;
+    }
+    effects.push(row);
+  }
+  const tail = raw.slice(PALETTE_SIZE - PALETTE_TAIL_SIZE, PALETTE_SIZE);
+  return {
+    effects,
+    tail,
+    raw: raw.slice(),
+  };
+}
+
+export function encodePalette(palette: PaletteData): Uint8Array {
+  const out =
+    palette.raw.length === PALETTE_SIZE ? palette.raw.slice() : new Uint8Array(PALETTE_SIZE);
+  let offset = 0;
+  const effectCount = Math.min(PALETTE_EFFECT_COUNT, palette.effects.length);
+  for (let e = 0; e < effectCount; e++) {
+    const row = palette.effects[e];
+    const colorCount = Math.min(PALETTE_COLORS_PER_EFFECT, row.length);
+    for (let c = 0; c < colorCount; c++) {
+      const rgb = row[c];
+      out[offset + c * 3] = Math.max(0, Math.min(255, Math.round(rgb.r)));
+      out[offset + c * 3 + 1] = Math.max(0, Math.min(255, Math.round(rgb.g)));
+      out[offset + c * 3 + 2] = Math.max(0, Math.min(255, Math.round(rgb.b)));
+    }
+    offset += PALETTE_COLORS_PER_EFFECT * 3;
+  }
+  if (palette.tail.length === PALETTE_TAIL_SIZE) {
+    out.set(palette.tail, PALETTE_SIZE - PALETTE_TAIL_SIZE);
+  }
+  return out;
+}
+
+export function createDefaultPalette(): PaletteData {
+  const effects: RGBColor[][] = Array.from({ length: PALETTE_EFFECT_COUNT }, () =>
+    HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }))
+  );
+  const tail = new Uint8Array(PALETTE_TAIL_SIZE);
+  const palette: PaletteData = {
+    effects,
+    tail,
+    raw: new Uint8Array(PALETTE_SIZE),
+  };
+  palette.raw = encodePalette(palette);
+  return palette;
+}
+
 export function findClosestHwColorIndex(hex: string): number {
   const clean = hex.startsWith('#') ? hex.toUpperCase() : ('#' + hex).toUpperCase();
   const exact = HW_COLOR_PRESETS.find((p) => p.hex.toUpperCase() === clean);
@@ -95,6 +168,8 @@ class RgbControllerService {
   private animInterval: any = null;
   private isSendingFrame = false;
   private detectedModel: string = 'Leobog Hi75 C Pro';
+  private palette: PaletteData = createDefaultPalette();
+  private paletteSynced: boolean = false;
 
   // Mutual exclusion queue routed through unified WebHID queue to prevent USB transaction collisions
   private async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -245,6 +320,33 @@ class RgbControllerService {
           }
         });
 
+        if (!this.paletteSynced) {
+          try {
+            const rawPal = await wirelessClient.readPalette();
+            const decoded = decodePalette(rawPal);
+            const isAllZero = decoded.effects.every((row) =>
+              row.every((c) => c.r === 0 && c.g === 0 && c.b === 0)
+            );
+            if (isAllZero) {
+              webhid.log('[RGB 2.4G] Detected wiped hardware palette (all zeros). Auto-restoring default Leobog palette...');
+              this.palette = createDefaultPalette();
+              await wirelessClient.writePalette(encodePalette(this.palette));
+            } else {
+              this.palette = decoded;
+            }
+            this.paletteSynced = true;
+          } catch (palErr: any) {
+            webhid.log(`[RGB 2.4G Palette Sync] Initializing default palette (${palErr.message})`);
+            this.palette = createDefaultPalette();
+            try {
+              await wirelessClient.writePalette(encodePalette(this.palette));
+              this.paletteSynced = true;
+            } catch {
+              // Retry later
+            }
+          }
+        }
+
         if (!silent) {
           const customFlag = cfg128[9] === 1;
           const effectId = cfg128[10];
@@ -252,16 +354,23 @@ class RgbControllerService {
 
           const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
           const base = 58 + slotIdx * 2;
-          const brightness = Math.min(4, Math.max(1, cfg128[base] || 4));
+          const rawBright = cfg128[base] ?? 7;
+          // Map 0..9 hardware brightness scale to UI 1..4 scale
+          const brightness = rawBright >= 8 ? 4 : rawBright >= 6 ? 3 : rawBright >= 3 ? 2 : 1;
           const speedByte = cfg128[base + 1] ?? 0x27;
           const speed = Math.min(4, Math.max(0, (speedByte >> 4) & 0x0f));
           const colorNibble = speedByte & 0x0f;
           const colorful = colorNibble === 0x07;
 
           let staticColor = this.state.staticColor;
-          const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
-          if (hwPreset && !colorful) {
-            staticColor = hwPreset.hex;
+          if (!colorful && colorNibble < 7) {
+            const palRgb = this.palette.effects[effectId]?.[colorNibble];
+            if (palRgb && (palRgb.r !== 0 || palRgb.g !== 0 || palRgb.b !== 0)) {
+              staticColor = rgbToHex(palRgb.r, palRgb.g, palRgb.b);
+            } else {
+              const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
+              if (hwPreset) staticColor = hwPreset.hex;
+            }
           }
 
           const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
@@ -430,24 +539,56 @@ class RgbControllerService {
           newCfg[127] = 0xa5;
 
           // custom_flag = 0, effectId
-          newCfg[9] = 0x00;
+          newCfg[9] = effectId === 32 ? 0x01 : 0x00;
           newCfg[10] = effectId;
-
-          // secondary lights
-          newCfg[18] = 0x00;
-          newCfg[28] = 0x00;
 
           const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
 
+          // Slot indexing: matches ckieking (effect 1..24 -> slot 0..23)
+          const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
+          const base = 58 + slotIdx * 2;
+
+          // Map UI brightness (1..4) to hardware brightness (0..9)
+          const hwBrightness = brightness <= 4
+            ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, brightness))] || 7
+            : Math.min(9, Math.max(0, brightness));
+
           if (effectId > 0 && effectId <= 32) {
-            const slotIdx = effectId >= 1 && effectId <= 24 ? effectId - 1 : 0;
-            const base = 58 + slotIdx * 2;
-            newCfg[base] = Math.max(1, Math.min(4, brightness));
+            newCfg[base] = hwBrightness;
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
             const lower = colorIdx & 0x0f;
             newCfg[base + 1] = upper | lower;
           } else if (effectId === 0) {
             newCfg[10] = 0x00;
+          }
+
+          // Synchronize palette if single color mode is active
+          let needPaletteWrite = false;
+          if (!colorful && colorIdx < 7 && effectId >= 1 && effectId <= 23) {
+            const targetRgb = hexToRgb(normalizedColor);
+            if (!this.palette.effects[effectId]) {
+              this.palette.effects[effectId] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+            }
+            const curr = this.palette.effects[effectId][colorIdx];
+            if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
+              this.palette.effects[effectId][colorIdx] = targetRgb;
+              needPaletteWrite = true;
+            }
+          }
+
+          // If palette has never been written or was detected all zeroes, write full palette
+          if (!this.paletteSynced) {
+            needPaletteWrite = true;
+          }
+
+          if (needPaletteWrite) {
+            try {
+              await wirelessClient.writePalette(encodePalette(this.palette));
+              this.paletteSynced = true;
+              webhid.log(`[RGB 2.4G] Palette verified and written for effect #${effectId} slot ${colorIdx}`);
+            } catch (palErr: any) {
+              webhid.log(`[RGB 2.4G Palette Error] ${palErr.message}`);
+            }
           }
 
           // For Static mode (ID 1) with custom color, transmit planar RGB map
@@ -696,6 +837,33 @@ class RgbControllerService {
       webhid.log(`[RGB] Static profile error: ${err.message}`);
       return false;
     }
+  }
+
+  // Restore factory default 490-byte palette across all 23 effects
+  public async restoreDefaultPalette(): Promise<boolean> {
+    this.palette = createDefaultPalette();
+    const wirelessClient = webhid.getWirelessClient();
+    if (wirelessClient) {
+      return this.runExclusive(async () => {
+        try {
+          await wirelessClient.writePalette(encodePalette(this.palette));
+          this.paletteSynced = true;
+          webhid.log('[RGB 2.4G] Factory default palette successfully restored to keyboard memory!');
+          await this.setHardwareEffect(
+            this.state.effectId,
+            this.state.brightness,
+            this.state.speed,
+            this.state.colorful,
+            this.state.staticColor
+          );
+          return true;
+        } catch (err: any) {
+          webhid.log(`[RGB 2.4G] Palette restore failed: ${err.message}`);
+          return false;
+        }
+      });
+    }
+    return true;
   }
 
   // Set side-light strip effect mode (0=off, 1=rainbow, 2=breathing mixed, 3=static red, 4=breathing red)

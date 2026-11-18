@@ -27,6 +27,19 @@ interface RgbControlPanelProps {
   isDevMode?: boolean;
 }
 
+const IconMulticolorRing: React.FC<{ size?: number; className?: string }> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <circle cx="12" cy="12" r="10" fill="#181818" />
+    <path d="M12 2 A10 10 0 0 1 20.66 7 L12 12 Z" fill="#e5484d" />
+    <path d="M20.66 7 A10 10 0 0 1 20.66 17 L12 12 Z" fill="#e5a93b" />
+    <path d="M20.66 17 A10 10 0 0 1 12 22 L12 12 Z" fill="#c6f24e" />
+    <path d="M12 22 A10 10 0 0 1 3.34 17 L12 12 Z" fill="#38bdf8" />
+    <path d="M3.34 17 A10 10 0 0 1 3.34 7 L12 12 Z" fill="#4a8ad6" />
+    <path d="M3.34 7 A10 10 0 0 1 12 2 L12 12 Z" fill="#e06c9f" />
+    <circle cx="12" cy="12" r="4" fill="#111111" />
+  </svg>
+);
+
 export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, isDevMode = false }) => {
   const [rgbState, setRgbState] = useState<RgbConfigState>(rgbService.getState());
   const [activeTab, setActiveTab] = useState<'effects' | 'perKey' | 'stream'>('effects');
@@ -689,19 +702,31 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                     {activeEffectObj?.name || 'Effect'} Color
                   </h3>
                 </div>
-                {!rgbState.colorful ? (
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-full flex items-center gap-1.5">
-                    <span
-                      className="w-2 h-2 rounded-full shadow-[0_0_6px_currentColor]"
-                      style={{ backgroundColor: rgbState.staticColor }}
-                    />
-                    Active Color
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
-                    Spectrum Active
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await rgbService.restoreDefaultPalette();
+                    }}
+                    title="Restore default Leobog hardware palette (un-bricks dark single colors)"
+                    className="text-[10px] font-mono text-zinc-500 hover:text-cyan-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    Reset Palette
+                  </button>
+                  {!rgbState.colorful ? (
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full shadow-[0_0_6px_currentColor]"
+                        style={{ backgroundColor: rgbState.staticColor }}
+                      />
+                      Active Color
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
+                      Spectrum Active
+                    </span>
+                  )}
+                </div>
               </div>
 
               {activeEffectObj?.hasColor === false && (
@@ -710,8 +735,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                 </div>
               )}
 
-              {/* Color Preset Swatches */}
-              <div className="grid grid-cols-5 gap-2">
+              {/* Color Preset Swatches (7 hardware presets + Multicolor ring, matching ckieking) */}
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                 {COLOR_PRESETS.map((preset) => {
                   const isMatch =
                     !rgbState.colorful &&
@@ -732,6 +757,29 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                     </button>
                   );
                 })}
+
+                {/* Multicolor / Rainbow Ring Option */}
+                {activeEffectObj?.hasColor !== false && (
+                  <button
+                    onClick={async () => {
+                      await rgbService.setHardwareEffect(
+                        rgbState.effectId,
+                        rgbState.brightness,
+                        rgbState.speed,
+                        true,
+                        rgbState.staticColor
+                      );
+                    }}
+                    title="Multicolor / Spectrum Cycle (Slot 7)"
+                    className={`w-full aspect-square rounded-xl transition-all relative group flex items-center justify-center border hover:scale-105 bg-[#141414] ${
+                      rgbState.colorful
+                        ? 'border-cyan-400 ring-2 ring-cyan-500/30 shadow-lg'
+                        : 'border-white/10 hover:border-white/40'
+                    }`}
+                  >
+                    <IconMulticolorRing size={22} />
+                  </button>
+                )}
               </div>
 
               {/* Custom Hex Picker Input */}
@@ -761,7 +809,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
 
               {activeEffectObj && activeEffectObj.id !== 1 && activeEffectObj.hasColor !== false && (
                 <p className="text-[10px] text-zinc-500 leading-tight">
-                  Animation effects use Leobog hardware shaders (7 primary colors + Rainbow). Static mode (#1) supports full custom RGB spectrum.
+                  Single color modes use the 490B hardware palette (slots 0-6). Multicolor mode runs the ROM spectrum shader.
                 </p>
               )}
             </div>
