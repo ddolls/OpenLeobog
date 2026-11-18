@@ -45,6 +45,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const [activeTab, setActiveTab] = useState<'effects' | 'perKey' | 'stream'>('effects');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [brushColor, setBrushColor] = useState<string>('#00e5ff');
+  const [brushHexInput, setBrushHexInput] = useState<string>('#00E5FF');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [hexInput, setHexInput] = useState<string>(rgbState.staticColor?.toUpperCase() || '#00E5FF');
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
@@ -229,11 +230,11 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
     stagedColorsRef.current = cleared;
   };
 
-  // 1-Click Zone Preset: FPS Focus (WASD + Space + Shift + LCtrl in Neon Red/Cyan)
+  // 1-Click Zone Preset: FPS Focus (WASD + Space + Shift + Ctrl in Neon Red/Cyan)
   const handleFpsPreset = () => {
     const fps: Record<number, string> = {};
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
-      fps[k.matrixIdx] = '#06080e';
+      fps[k.matrixIdx] = '#000000';
     });
     // WASD in Vivid Crimson
     [14, 9, 15, 21].forEach((idx) => {
@@ -255,7 +256,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const handleMobaPreset = () => {
     const moba: Record<number, string> = {};
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
-      moba[k.matrixIdx] = '#06080e';
+      moba[k.matrixIdx] = '#000000';
     });
     // Abilities Q, W, E, R in Royal Violet
     [8, 14, 20, 26].forEach((idx) => {
@@ -279,7 +280,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const handleArrowNavPreset = () => {
     const nav: Record<number, string> = {};
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
-      nav[k.matrixIdx] = '#06080e';
+      nav[k.matrixIdx] = '#000000';
     });
     // Arrow keys in Emerald
     [82, 77, 83, 89].forEach((idx) => {
@@ -299,7 +300,7 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
   const handleFunctionRowPreset = () => {
     const fRow: Record<number, string> = {};
     LEOBOG_HI75C_LAYOUT.forEach((k) => {
-      fRow[k.matrixIdx] = '#06080e';
+      fRow[k.matrixIdx] = '#000000';
     });
     const fKeys = [0, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78];
     fKeys.forEach((idx, i) => {
@@ -830,29 +831,73 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={brushColor}
-                  onChange={(e) => setBrushColor(e.target.value)}
+                  value={
+                    brushColor.startsWith('#') && brushColor.length === 7
+                      ? brushColor
+                      : '#00e5ff'
+                  }
+                  onChange={(e) => {
+                    const c = e.target.value.toUpperCase();
+                    setBrushColor(c);
+                    setBrushHexInput(c);
+                  }}
                   className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                  title="Pick brush color from palette"
                 />
-                <span className="font-mono text-xs text-zinc-300 uppercase px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded-lg">
-                  {brushColor}
-                </span>
+                <input
+                  type="text"
+                  value={brushHexInput}
+                  onChange={(e) => {
+                    let val = e.target.value.trim();
+                    if (!val.startsWith('#') && val.length > 0) val = '#' + val;
+                    setBrushHexInput(val.toUpperCase());
+                    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                      setBrushColor(val.toUpperCase());
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!/^#[0-9A-Fa-f]{6}$/.test(brushHexInput)) {
+                      setBrushHexInput(brushColor.toUpperCase());
+                    }
+                  }}
+                  placeholder="#00E5FF"
+                  maxLength={7}
+                  className="font-mono text-xs text-zinc-200 uppercase px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded-lg w-20 outline-none focus:border-cyan-500 transition-colors"
+                  title="Type or paste custom hex color (e.g. #FF0055)"
+                />
               </div>
 
               {/* Quick Swatches */}
-              <div className="flex items-center gap-1.5 ml-2 border-l border-[#222222] pl-3">
-                {COLOR_PRESETS.slice(0, 6).map((preset) => (
+              <div className="flex items-center gap-1.5 ml-1 border-l border-[#222222] pl-3">
+                {COLOR_PRESETS.map((preset) => (
                   <button
                     key={preset.hex}
-                    onClick={() => setBrushColor(preset.hex)}
+                    onClick={() => {
+                      const c = preset.hex.toUpperCase();
+                      setBrushColor(c);
+                      setBrushHexInput(c);
+                    }}
                     style={{ backgroundColor: preset.hex }}
-                    className={`w-6 h-6 rounded-lg transition-transform hover:scale-110 ${
+                    title={preset.label}
+                    className={`w-6 h-6 rounded-lg transition-transform hover:scale-110 cursor-pointer ${
                       brushColor.toLowerCase() === preset.hex.toLowerCase()
                         ? 'ring-2 ring-white scale-105'
                         : ''
                     }`}
                   />
                 ))}
+                {/* Black / Eraser Swatch */}
+                <button
+                  onClick={() => {
+                    setBrushColor('#000000');
+                    setBrushHexInput('#000000');
+                  }}
+                  style={{ backgroundColor: '#000000' }}
+                  title="Eraser / LED Off (#000000)"
+                  className={`w-6 h-6 rounded-lg border border-zinc-700 transition-transform hover:scale-110 cursor-pointer ${
+                    brushColor === '#000000' ? 'ring-2 ring-rose-500 scale-105' : ''
+                  }`}
+                />
               </div>
             </div>
 
