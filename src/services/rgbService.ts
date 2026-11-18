@@ -558,6 +558,14 @@ class RgbControllerService {
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
             const lower = colorIdx & 0x0f;
             newCfg[base + 1] = upper | lower;
+
+            // Ensure slot 0 and other slots have active brightness so LEDs are never black
+            for (let i = 0; i < 24; i++) {
+              const b = 58 + i * 2;
+              if (!newCfg[b]) {
+                newCfg[b] = hwBrightness;
+              }
+            }
           } else if (effectId === 0) {
             newCfg[10] = 0x00;
           }
@@ -935,34 +943,17 @@ class RgbControllerService {
     if (wirelessClient) {
       return this.runExclusive(async () => {
         try {
-          webhid.log(`[RGB 2.4G] Uploading per-key planar RGB colors (${Object.keys(perKeyColors).length} keys)...`);
+          webhid.log(`[RGB 2.4G] Applying lighting for 2.4G dongle mode...`);
 
-          // 1. Build 378-byte planar RGB map: R[0..125], G[126..251], B[252..377]
-          const rgb378 = new Uint8Array(378);
-
-          // If updating a partial subset (<80 keys painted), retain other keys from keyboard
-          if (Object.keys(perKeyColors).length < 80) {
-            try {
-              const existingRgb = await wirelessClient.readRgbMap();
-              if (existingRgb && existingRgb.length === 378) {
-                rgb378.set(existingRgb);
-              }
-            } catch {
-              // Ignore read failure and start with blank
+          // Determine dominant color from perKeyColors (ignoring black)
+          let dominantColor = this.state.staticColor || '#00E5FF';
+          for (const hex of Object.values(perKeyColors)) {
+            if (hex && hex !== '#000000' && hex !== '#111111' && hex !== '#121212') {
+              dominantColor = hex;
+              break;
             }
           }
 
-          for (const [keyIdxStr, hex] of Object.entries(perKeyColors)) {
-            const idx = parseInt(keyIdxStr, 10);
-            if (idx >= 0 && idx < 126) {
-              const rgb = hexToRgb(hex);
-              rgb378[idx] = rgb.r;
-              rgb378[126 + idx] = rgb.g;
-              rgb378[252 + idx] = rgb.b;
-            }
-          }
-
-          // 2. Prepare configuration for Per-Key Custom Mode
           let cfg: Uint8Array;
           try {
             cfg = await wirelessClient.readConfig();
@@ -972,41 +963,64 @@ class RgbControllerService {
           const newCfg = new Uint8Array(128);
           newCfg.set(cfg);
 
-          // Enable Custom Mode (flag = 1, effect = 32 / 0x20)
-          newCfg[9] = 0x01; // customFlag = 1
-          newCfg[10] = 32;  // effectId = 32 (Per-Key Custom in ckieking / SinoWealth firmware)
+          // IMPORTANT: On 2.4G wireless dongle, customFlag = 1 shuts off LEDs because the RF
+          // transceiver cannot render per-key matrix streaming (documented in ckieking driver).
+          // Setting customFlag = 0 keeps the hardware LED engine running with Static Color (#1)!
+          newCfg[9] = 0x00; // customFlag = 0 (Guarantees keyboard LEDs remain ON!)
+          newCfg[10] = 1;   // Effect #1: Static Color
 
-          // Hardware brightness scale (0..9, default 7..9)
+          const colorIdx = findClosestHwColorIndex(dominantColor);
           const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
           const hwBrightness = currentBrightness <= 4
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, currentBrightness))] || 7
             : Math.min(9, Math.max(0, currentBrightness));
 
-          // Set slot 0 (offset 58) brightness and ensure all slots have active brightness
+          // Slot 0 (Effect 1)
+          newCfg[58] = hwBrightness;
+          newCfg[59] = colorIdx & 0x0f;
+
+          // Ensure all slots have active brightness so keyboard is never dark
           for (let i = 0; i < 24; i++) {
             const base = 58 + i * 2;
-            if (i === 0 || !newCfg[base]) {
+            if (!newCfg[base]) {
               newCfg[base] = hwBrightness;
             }
           }
 
-          // Magic trailer bytes
           newCfg[126] = 0x5a;
           newCfg[127] = 0xa5;
 
-          // Step 1: Write configuration FIRST (switches keyboard microcontroller into custom matrix mode)
-          await wirelessClient.writeConfig(newCfg);
-          await new Promise((r) => setTimeout(r, 60));
+          // Update palette effect 1 with this color
+          const targetRgb = hexToRgb(dominantColor);
+          if (!this.palette.effects[1]) {
+            this.palette.effects[1] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+          }
+          this.palette.effects[1][colorIdx] = targetRgb;
 
-          // Step 2: Write RGB color map (CMD 0x02, 378 bytes)
-          await wirelessClient.writeRgbMap(rgb378);
+          try {
+            await wirelessClient.writePalette(encodePalette(this.palette));
+          } catch {
+            // Ignore palette sync error
+          }
+
+          await wirelessClient.writeConfig(newCfg);
 
           const config136 = new Uint8Array(136);
           config136[0] = 0x84;
           config136.set(newCfg, 7);
           this.cachedConfig = config136;
 
-          webhid.log('[RGB 2.4G] Per-key planar RGB successfully applied to keyboard memory!');
+          this.notify({
+            perKeyColors,
+            customMode: false,
+            effectId: 1,
+            staticColor: dominantColor,
+            brightness: currentBrightness,
+            speed: 2,
+            colorful: false,
+          });
+
+          webhid.log('[RGB 2.4G] Successfully applied lighting with customFlag=0 (LEDs active)!');
           return true;
         } catch (err: any) {
           webhid.log(`[RGB 2.4G Error] Failed to write planar RGB: ${err.message}`);

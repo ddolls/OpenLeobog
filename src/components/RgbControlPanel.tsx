@@ -11,6 +11,7 @@ import {
   Gamepad2,
   Navigation,
   Sparkles,
+  Sun,
 } from 'lucide-react';
 import {
   LEOBOG_RGB_EFFECTS,
@@ -422,13 +423,25 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
             </div>
 
             {isConnected && (
-              <button
-                onClick={() => rgbService.readDeviceConfig()}
-                title="Sync from Keyboard"
-                className="p-2.5 rounded-xl bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-white transition-all"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    await rgbService.setHardwareEffect(3, 4, 2, true);
+                  }}
+                  title="Wake & Turn ON All Keyboard Lights (Rainbow Wave)"
+                  className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-black text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>Turn ON Lights</span>
+                </button>
+                <button
+                  onClick={() => rgbService.readDeviceConfig()}
+                  title="Sync from Keyboard"
+                  className="p-2.5 rounded-xl bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-white transition-all cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
