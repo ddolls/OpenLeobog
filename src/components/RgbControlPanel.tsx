@@ -408,6 +408,8 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                     ? `Streaming: ${rgbState.activeSoftwareAnim.toUpperCase()}`
                     : rgbState.customMode
                     ? 'Per-Key Custom Map'
+                    : rgbState.effectId === 18 || rgbState.effectId === 32
+                    ? 'Per-Key Custom Map'
                     : rgbState.effectId === 0
                     ? 'LEDs Off'
                     : `${activeEffectObj?.name || 'Rainbow Wave'}${

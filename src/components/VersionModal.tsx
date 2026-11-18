@@ -19,9 +19,40 @@ interface ChangelogEntry {
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: 'v1.4.0',
+    version: 'v1.5.0',
     releaseDate: 'November 2026',
     isLatest: true,
+    title: 'Dual-Mode Wired USB & 2.4G RGB Hardware Parity, Accurate Color Picking & Per-Key Fixes',
+    items: [
+      {
+        type: 'fix',
+        text: 'Wired USB Hardware Effect Color Picking: Integrated 490-byte hardware palette synchronization (CMD 0x09) and planar solid RGB mapping in wired USB mode, ensuring colors picked from swatches or the hex wheel accurately reflect on physical keys.',
+      },
+      {
+        type: 'fix',
+        text: 'Hardware Palette Index Alignment: Corrected 0-indexed effect slot offset (effectId - 1) across both wired and 2.4G wireless modes, ensuring effects like Rain, Breathing, and Ripple accurately bind to user colors.',
+      },
+      {
+        type: 'fix',
+        text: 'Per-Key Custom RGB Mode Alignment: Reverse-engineered official LEOBOG ONE OemDrv.exe GaoshouIndex (Mode 18), StartGp global control byte (0x20), and magic trailer bytes (0x5A, 0xA5) for both wired and wireless dongle modes.',
+      },
+      {
+        type: 'fix',
+        text: 'Single-Key Brush Fix: Eliminated ambient background flooding logic, ensuring unpainted keys strictly turn off (RGB 0, 0, 0) and only brushed keys illuminate.',
+      },
+      {
+        type: 'feature',
+        text: 'Streamlined UI: Removed redundant Per-Key Custom duplicates from Hardware Effects list and eliminated unused Turn ON button.',
+      },
+      {
+        type: 'feature',
+        text: 'Clean Sidebar Version Indicator: Simplified footer version display without background pill or redundant changelog label.',
+      },
+    ],
+  },
+  {
+    version: 'v1.4.0',
+    releaseDate: 'November 2026',
     title: '2.4GHz Dongle Connection, Auto-Sync & JSON Profile Export/Import',
     items: [
       {

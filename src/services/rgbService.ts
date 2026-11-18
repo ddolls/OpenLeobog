@@ -241,6 +241,7 @@ class RgbControllerService {
     this.stopKeepalive();
     this.device = null;
     this.cachedConfig = null;
+    this.paletteSynced = false;
     this.notify({ isDirectStreaming: false });
     webhid.log('[RGB] Device detached from RGB controller.');
   }
@@ -281,6 +282,58 @@ class RgbControllerService {
     } catch (err: any) {
       webhid.log(`[RGB] Model query failed: ${err.message}`);
       return 'Leobog Hi75 C Pro';
+    }
+  }
+
+  // Write 490-byte hardware palette via Feature Report 6 (CMD 0x09) in wired USB mode
+  public async writeWiredPalette(palette490: Uint8Array): Promise<boolean> {
+    if (!this.device || !this.device.opened) return false;
+    try {
+      const pkt = new Uint8Array(519);
+      pkt[0] = 0x09; // CMD: PALETTE_WRITE
+      pkt[1] = 0x00;
+      pkt[2] = 0x00;
+      pkt[3] = 0x01;
+      pkt[4] = 0x01; // length MSB (0x01)
+      pkt[5] = 0xea; // length LSB (0xEA) -> 490 bytes
+      pkt[6] = 0x00;
+      pkt.set(palette490.subarray(0, 490), 7);
+      pkt[513] = 0x5a;
+      pkt[514] = 0xa5;
+
+      await this.device.sendFeatureReport(6, pkt);
+      await new Promise((r) => setTimeout(r, 40));
+      return true;
+    } catch (err: any) {
+      webhid.log(`[RGB Wired Palette Error] ${err.message}`);
+      return false;
+    }
+  }
+
+  // Read 490-byte hardware palette via Feature Report 6 (CMD 0x89) in wired USB mode
+  public async readWiredPalette(): Promise<Uint8Array | null> {
+    if (!this.device || !this.device.opened) return null;
+    try {
+      const pkt = new Uint8Array(519);
+      pkt[0] = 0x89; // CMD: PALETTE_READ
+      pkt[1] = 0x00;
+      pkt[2] = 0x00;
+      pkt[3] = 0x01;
+      pkt[4] = 0x01;
+      pkt[5] = 0xea;
+
+      await this.device.sendFeatureReport(6, pkt);
+      await new Promise((r) => setTimeout(r, 40));
+      const res = await this.device.receiveFeatureReport(6);
+      const data = new Uint8Array(res.buffer, res.byteOffset, res.byteLength);
+      const base = data[0] === 6 ? 1 : 0;
+      if (data.length >= base + 7 + PALETTE_SIZE) {
+        return data.slice(base + 7, base + 7 + PALETTE_SIZE);
+      }
+      return null;
+    } catch (err: any) {
+      webhid.log(`[RGB Wired Read Palette Notice] ${err.message}`);
+      return null;
     }
   }
 
@@ -351,7 +404,8 @@ class RgbControllerService {
 
           let staticColor = this.state.staticColor;
           if (!colorful && colorNibble < 7) {
-            const palRgb = this.palette.effects[effectId]?.[colorNibble];
+            const palIdx = Math.max(0, Math.min(22, effectId - 1));
+            const palRgb = this.palette.effects[palIdx]?.[colorNibble];
             if (palRgb && (palRgb.r !== 0 || palRgb.g !== 0 || palRgb.b !== 0)) {
               staticColor = rgbToHex(palRgb.r, palRgb.g, palRgb.b);
             } else {
@@ -420,6 +474,38 @@ class RgbControllerService {
         }
       });
 
+      if (!this.paletteSynced) {
+        try {
+          const rawPal = await this.readWiredPalette();
+          if (rawPal && rawPal.length === PALETTE_SIZE) {
+            const decoded = decodePalette(rawPal);
+            const isAllZero = decoded.effects.every((row) =>
+              row.every((c) => c.r === 0 && c.g === 0 && c.b === 0)
+            );
+            if (isAllZero) {
+              webhid.log('[RGB Wired] Detected wiped hardware palette (all zeros). Auto-restoring default Leobog palette...');
+              this.palette = createDefaultPalette();
+              await this.writeWiredPalette(encodePalette(this.palette));
+            } else {
+              this.palette = decoded;
+            }
+          } else {
+            this.palette = createDefaultPalette();
+            await this.writeWiredPalette(encodePalette(this.palette));
+          }
+          this.paletteSynced = true;
+        } catch (palErr: any) {
+          webhid.log(`[RGB Wired Palette Sync] Initializing default palette (${palErr.message})`);
+          this.palette = createDefaultPalette();
+          try {
+            await this.writeWiredPalette(encodePalette(this.palette));
+            this.paletteSynced = true;
+          } catch {
+            // Retry later
+          }
+        }
+      }
+
       // Only notify listeners if not in silent/internal sync mode
       if (!silent) {
         // Wire offsets (relative to command byte at index 0):
@@ -445,9 +531,15 @@ class RgbControllerService {
           const colorNibble = speedByte & 0x0f;
           colorful = colorNibble === 0x07;
 
-          const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
-          if (hwPreset && !colorful) {
-            staticColor = hwPreset.hex;
+          if (!colorful && colorNibble < 7) {
+            const palIdx = Math.max(0, Math.min(22, effectId - 1));
+            const palRgb = this.palette.effects[palIdx]?.[colorNibble];
+            if (palRgb && (palRgb.r !== 0 || palRgb.g !== 0 || palRgb.b !== 0)) {
+              staticColor = rgbToHex(palRgb.r, palRgb.g, palRgb.b);
+            } else {
+              const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
+              if (hwPreset) staticColor = hwPreset.hex;
+            }
           }
         }
 
@@ -583,20 +675,20 @@ class RgbControllerService {
             }
           }
 
-          // Synchronize palette only if custom non-preset color is chosen
-          const isStandardPreset = HW_COLOR_PRESETS.some((p) => p.hex.toUpperCase() === normalizedColor);
-          if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23 && !isStandardPreset) {
+          // Synchronize palette for custom / single-color modes (0-indexed effect row: palIdx = normalizedEffectId - 1)
+          const palIdx = Math.max(0, Math.min(22, normalizedEffectId - 1));
+          if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23) {
             const targetRgb = hexToRgb(normalizedColor);
-            if (!this.palette.effects[normalizedEffectId]) {
-              this.palette.effects[normalizedEffectId] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+            if (!this.palette.effects[palIdx]) {
+              this.palette.effects[palIdx] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
             }
-            const curr = this.palette.effects[normalizedEffectId][colorIdx];
+            const curr = this.palette.effects[palIdx][colorIdx];
             if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
-              this.palette.effects[normalizedEffectId][colorIdx] = targetRgb;
+              this.palette.effects[palIdx][colorIdx] = targetRgb;
               try {
                 await wirelessClient.writePalette(encodePalette(this.palette));
                 this.paletteSynced = true;
-                webhid.log(`[RGB 2.4G] Palette updated for effect #${normalizedEffectId} slot ${colorIdx}`);
+                webhid.log(`[RGB 2.4G] Palette updated for effect #${normalizedEffectId} (row ${palIdx}) slot ${colorIdx}`);
               } catch (palErr: any) {
                 webhid.log(`[RGB 2.4G Palette Error] ${palErr.message}`);
               }
@@ -636,14 +728,36 @@ class RgbControllerService {
           `[RGB] Applying Effect #${effectId} (Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${normalizedColor})...`
         );
 
-        // STEP 1: For Static mode (ID 1), send custom color profile via CMD 0x0A when in single-color mode
-        if (effectId === 1 && !colorful) {
-          await this.writeStaticColorProfile(normalizedColor);
-          // Wait for MCU to write the 519-byte color profile to memory
-          await new Promise((r) => setTimeout(r, 60));
-          // Synchronize MCU USB pipeline with config query handshake
-          await this.readDeviceConfig(true);
-          await new Promise((r) => setTimeout(r, 40));
+        // STEP 1: For Static mode (ID 1), send full solid planar RGB map
+        if (normalizedEffectId === 1 && !colorful) {
+          try {
+            const rgb = hexToRgb(normalizedColor);
+            const report8 = new Uint8Array(382);
+            report8[0] = 0x08;
+            report8[1] = 0x0a;
+            report8[2] = 0x7a;
+            report8[3] = 0x01;
+            for (let i = 0; i < 126; i++) {
+              report8[4 + i] = rgb.r;
+              report8[4 + 126 + i] = rgb.g;
+              report8[4 + 252 + i] = rgb.b;
+            }
+            await this.device.sendFeatureReport(8, report8);
+
+            const pktPlanar = new Uint8Array(519);
+            pktPlanar[0] = 0x06; // CMD: LED_PLANAR
+            pktPlanar[3] = 0x01;
+            pktPlanar[5] = 0x7e;
+            pktPlanar[6] = 0x01;
+            for (let i = 0; i < 126; i++) {
+              pktPlanar[7 + i] = rgb.r;
+              pktPlanar[7 + 126 + i] = rgb.g;
+              pktPlanar[7 + 252 + i] = rgb.b;
+            }
+            await this.device.sendFeatureReport(6, pktPlanar);
+          } catch (err: any) {
+            webhid.log(`[RGB Wired Solid Planar] ${err.message}`);
+          }
         }
 
         // STEP 2: Use cached baseline config or read once if missing
@@ -653,7 +767,28 @@ class RgbControllerService {
           await new Promise((r) => setTimeout(r, 30));
         }
 
-        // STEP 3: Write modified config back (CMD 0x04)
+        // STEP 3: Synchronize hardware palette for single-color effects (0-indexed effect row: palIdx = normalizedEffectId - 1)
+        const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
+        const palIdx = Math.max(0, Math.min(22, normalizedEffectId - 1));
+        if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23) {
+          const targetRgb = hexToRgb(normalizedColor);
+          if (!this.palette.effects[palIdx]) {
+            this.palette.effects[palIdx] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+          }
+          const curr = this.palette.effects[palIdx][colorIdx];
+          if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
+            this.palette.effects[palIdx][colorIdx] = targetRgb;
+            try {
+              await this.writeWiredPalette(encodePalette(this.palette));
+              this.paletteSynced = true;
+              webhid.log(`[RGB Wired] Palette updated for effect #${normalizedEffectId} (row ${palIdx}) slot ${colorIdx}`);
+            } catch (palErr: any) {
+              webhid.log(`[RGB Wired Palette Error] ${palErr.message}`);
+            }
+          }
+        }
+
+        // STEP 4: Write modified config back (CMD 0x04)
         const pkt = new Uint8Array(519);
         pkt[0] = 0x04; // CMD: CONFIG_WRITE
         pkt[3] = 0x01;
@@ -679,7 +814,6 @@ class RgbControllerService {
         pkt[64] = 0xff; // offset 57 in config
 
         // Patch brightness, speed, and color at offset 63 + 2 * effectId
-        const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
         const hwBrightWired = Math.max(1, Math.min(9, [0, 2, 5, 7, 9][brightness] || 7));
 
         if (normalizedEffectId > 0 && normalizedEffectId <= 32) {
@@ -865,7 +999,7 @@ class RgbControllerService {
     }
   }
 
-  // Restore factory default 490-byte palette across all 23 effects
+  // Restore factory default 490-byte palette across all 23 effects (Dual-mode: 2.4G & Wired USB)
   public async restoreDefaultPalette(): Promise<boolean> {
     this.palette = createDefaultPalette();
     const wirelessClient = webhid.getWirelessClient();
@@ -889,7 +1023,25 @@ class RgbControllerService {
         }
       });
     }
-    return true;
+
+    return this.runExclusive(async () => {
+      try {
+        await this.writeWiredPalette(encodePalette(this.palette));
+        this.paletteSynced = true;
+        webhid.log('[RGB Wired] Factory default palette successfully restored to keyboard memory!');
+        await this.setHardwareEffect(
+          this.state.effectId,
+          this.state.brightness,
+          this.state.speed,
+          this.state.colorful,
+          this.state.staticColor
+        );
+        return true;
+      } catch (err: any) {
+        webhid.log(`[RGB Wired] Palette restore failed: ${err.message}`);
+        return false;
+      }
+    });
   }
 
   // Set side-light strip effect mode (0=off, 1=rainbow, 2=breathing mixed, 3=static red, 4=breathing red)

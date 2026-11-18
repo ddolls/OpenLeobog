@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity, Timer, Tag, Layers } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, Terminal, Palette, Sliders, Activity, Timer, Layers } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -106,29 +106,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Standalone Bottom Version Button (Completely isolated from regular nav items) */}
-        <div className="pt-4 border-t border-[#181818] mt-auto">
+        {/* Standalone Bottom Version Button */}
+        <div className="pt-3 border-t border-[#181818] mt-auto">
           <button
             type="button"
             onClick={onOpenVersionModal}
-            className="w-full text-left p-2.5 rounded-xl bg-[#111111] hover:bg-[#181818] border border-[#222222] hover:border-[#333333] transition-all flex items-center justify-between group cursor-pointer shadow-sm"
+            className="w-full px-2 py-1.5 flex items-center justify-between text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer group"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-                <Tag className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  Version
-                </div>
-                <div className="text-[10px] text-zinc-500 font-mono">
-                  Changelog
-                </div>
-              </div>
-            </div>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              v1.4.0
-            </span>
+            <span className="font-medium group-hover:text-white transition-colors">Version</span>
+            <span className="font-mono text-zinc-500 group-hover:text-cyan-400 transition-colors">v1.5.0</span>
           </button>
         </div>
       </aside>
