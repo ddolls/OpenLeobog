@@ -926,7 +926,7 @@ class RgbControllerService {
     this.notify({
       perKeyColors,
       customMode: true,
-      effectId: 1, // Mode 1: Static Color mode that renders rgb378 planar map
+      effectId: 18, // Mode 18 (0x12): Custom User Matrix Mode
       isDirectStreaming: false,
       activeSoftwareAnim: null,
     });
@@ -960,8 +960,9 @@ class RgbControllerService {
 
           // Step 1: Write RGB color map first
           await wirelessClient.writeRgbMap(rgb378);
+          await new Promise((r) => setTimeout(r, 60));
 
-          // Step 2: Write configuration for Static Mode (Effect 1) with valid brightness
+          // Step 2: Write configuration for Custom Per-Key Mode (flag = 1, effect = 18)
           let cfg: Uint8Array;
           try {
             cfg = await wirelessClient.readConfig();
@@ -971,19 +972,22 @@ class RgbControllerService {
           const newCfg = new Uint8Array(128);
           newCfg.set(cfg);
 
-          // Byte 9: 0x00 (standard hardware lighting pipeline)
-          newCfg[9] = 0x00;
-          // Byte 10: 1 (Effect 1: Static Color which drives LEDs directly from rgb378 planar map)
-          newCfg[10] = 1;
+          // Enable Custom Mode (flag = 1, effect = 18 / 0x12)
+          newCfg[9] = 0x01; // customFlag = 1
+          newCfg[10] = 0x12; // effect 18 (0x12) = Custom User Matrix Mode!
 
-          // Configure brightness for Effect 1 (slot 0 in config, offset 58)
+          // Configure brightness for Effect 18 (slot 17 in config, offset 56 + 2*18 = 92)
           const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
           const hwBrightness = currentBrightness <= 4
             ? [0, 2, 5, 7, 9][Math.max(1, Math.min(4, currentBrightness))] || 7
             : Math.min(9, Math.max(0, currentBrightness));
 
+          newCfg[92] = hwBrightness;
+          newCfg[93] = 0x20;
+
+          // Also set brightness for Effect 1 (offset 58)
           newCfg[58] = hwBrightness;
-          newCfg[59] = 0x20; // speed 2, single color mode
+          newCfg[59] = 0x27; // multicolor
 
           // Magic trailer bytes
           newCfg[126] = 0x5a;
@@ -1055,14 +1059,19 @@ class RgbControllerService {
           }
         }
 
-        cfgPkt[16] = 0x00; // Normal mode
-        cfgPkt[17] = 0x01; // Effect 1 (Static Color)
+        cfgPkt[16] = 0x01; // custom_flag = 1 (enables custom per-key)
+        cfgPkt[17] = 0x12; // effect 18 (0x12) = Custom User Matrix Mode!
         cfgPkt[25] = 0x00;
         cfgPkt[35] = 0x00;
 
         const currentBrightness = this.state.brightness > 0 ? this.state.brightness : 4;
+        // Parameter for Effect 18: 63 + 2 * 18 = 99
+        cfgPkt[99] = Math.max(1, Math.min(4, currentBrightness));
+        cfgPkt[100] = 0x20;
+
+        // Also parameter for Effect 1: 63 + 2 * 1 = 65
         cfgPkt[65] = Math.max(1, Math.min(4, currentBrightness));
-        cfgPkt[66] = 0x20;
+        cfgPkt[66] = 0x27;
 
         await this.device.sendFeatureReport(6, cfgPkt);
         webhid.log(`[RGB] Per-key planar layout saved to keyboard flash.`);
