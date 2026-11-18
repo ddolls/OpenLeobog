@@ -248,7 +248,56 @@ export function encodeKeyRecordBytes(hidUsage: number): [number, number, number,
   }
 
   // Standard Key (e.g. Q -> K [0, 0, 0, 0x0E], A -> B [0, 0, 0, 0x05])
-  return [0, 0, 0, hidUsage];
+  return [0, 0, 0, hidUsage & 0xFF];
+}
+
+// Canonicalize a 4-byte key record into standard hardware format:
+// Byte 0: Key Type (0 = standard/mod, 2 = consumer, 13 = Fn)
+// Byte 1: Modifier bitmask (0x01 LCtrl, 0x02 LShift, 0x04 LAlt, 0x08 LWin, 0x10 RCtrl, 0x20 RShift, 0x40 RAlt, 0x80 RWin)
+// Byte 2: Reserved
+// Byte 3: Standard HID Usage (0x04-0x65)
+// Ensures cross-mode parity between 2.4G wireless and wired USB profiles.
+export function canonicalizeKeyRecord(
+  bytes: [number, number, number, number] | number[] | undefined | null
+): [number, number, number, number] {
+  if (!bytes || bytes.length < 4) return [0, 0, 0, 0];
+  const b0 = bytes[0] & 0xff;
+  const b1 = bytes[1] & 0xff;
+  const b2 = bytes[2] & 0xff;
+  const b3 = bytes[3] & 0xff;
+
+  // Fn Key
+  if (b0 === 13) {
+    return [13, 0, 0, 0];
+  }
+
+  // Consumer Control (Media / Calculator / Browser)
+  if (b0 === 2) {
+    return [2, b1, b2, b3];
+  }
+
+  // Firmware / Custom vendor commands (0x07, 0x08)
+  if (b0 === 0x07 || b0 === 0x08) {
+    return [b0, b1, b2, b3];
+  }
+
+  // Standard / Modifier key (b0 === 0)
+  // If byte 3 has a raw modifier usage (0xE0..0xE7) and byte 1 is zero or partial:
+  // e.g. [0, 0, 0, 0xE2] for Left Alt -> convert to canonical [0, 0x04, 0, 0]
+  if (b3 >= 0xE0 && b3 <= 0xE7) {
+    const modBit = 1 << (b3 - 0xE0);
+    const combinedMods = (b1 | modBit) & 0xff;
+    return [0, combinedMods, 0, 0];
+  }
+
+  // Pure modifier already in byte 1 (e.g. [0, 0x04, 0, 0] or [0, 0x04, 0, 0xE2])
+  if (b1 !== 0 && (b3 === 0 || (b3 >= 0xE0 && b3 <= 0xE7))) {
+    return [0, b1, 0, 0];
+  }
+
+  // Combo key: modifier in byte 1 + standard key in byte 3 (e.g. [0, 0x01, 0, 0x06] for Ctrl+C)
+  // Or standard key alone: byte 1 is 0, byte 3 is keycode (e.g. [0, 0, 0, 0x04] for A)
+  return [0, b1, 0, b3];
 }
 
 // Encode modifier+key combo into 4-byte matrix record

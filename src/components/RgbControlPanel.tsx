@@ -21,6 +21,7 @@ import {
   type KeyDefinition,
 } from '../types/hid';
 import { rgbService } from '../services/rgbService';
+import { webhid } from '../services/webhid';
 
 interface RgbControlPanelProps {
   isConnected: boolean;
@@ -708,16 +709,18 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                   </h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={async () => {
-                      await rgbService.restoreDefaultPalette();
-                    }}
-                    title="Restore default Leobog hardware palette (un-bricks dark single colors)"
-                    className="text-[10px] font-mono text-zinc-500 hover:text-cyan-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full transition-colors flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-2.5 h-2.5" />
-                    Reset Palette
-                  </button>
+                  {webhid.getState().isWireless && (
+                    <button
+                      onClick={async () => {
+                        await rgbService.restoreDefaultPalette();
+                      }}
+                      title="Restore default Leobog hardware palette (un-bricks dark single colors)"
+                      className="text-[10px] font-mono text-zinc-500 hover:text-cyan-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full transition-colors flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      Reset Palette
+                    </button>
+                  )}
                   {!rgbState.colorful ? (
                     <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-full flex items-center gap-1.5">
                       <span
@@ -814,7 +817,9 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
 
               {activeEffectObj && activeEffectObj.id !== 1 && activeEffectObj.hasColor !== false && (
                 <p className="text-[10px] text-zinc-500 leading-tight">
-                  Single color modes use the 490B hardware palette (slots 0-6). Multicolor mode runs the ROM spectrum shader.
+                  {webhid.getState().isWireless
+                    ? 'Single color modes use the 490B hardware palette (slots 0-6). Multicolor mode runs the ROM spectrum shader.'
+                    : 'Single color modes use the built-in hardware ROM palette (slots 0-6). Multicolor mode runs the ROM spectrum shader.'}
                 </p>
               )}
             </div>

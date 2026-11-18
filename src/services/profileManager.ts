@@ -3,7 +3,7 @@
 import { webhid } from './webhid';
 import { rgbService } from './rgbService';
 import { hardwareSettingsService } from './hardwareSettingsService';
-import { LEOBOG_HI75C_LAYOUT, parseKeyRecordUsage } from '../types/hid';
+import { LEOBOG_HI75C_LAYOUT, parseKeyRecordUsage, canonicalizeKeyRecord } from '../types/hid';
 
 export const PROFILE_SCHEMA_VERSION = 1;
 export const PROFILE_DEVICE_NAME = 'LEOBOG Hi75C Pro';
@@ -72,11 +72,11 @@ class ProfileManager {
       const idx = key.matrixIdx;
       const baseRec = webhid.records.get(idx);
       if (baseRec) {
-        baseKeymap[`Matrix_${idx}`] = [...baseRec.bytes];
+        baseKeymap[`Matrix_${idx}`] = canonicalizeKeyRecord(baseRec.bytes);
       }
       const fnRec = webhid.fnRecords.get(idx);
       if (fnRec) {
-        fnKeymap[`Matrix_${idx}`] = [...fnRec.bytes];
+        fnKeymap[`Matrix_${idx}`] = canonicalizeKeyRecord(fnRec.bytes);
       }
     }
 
@@ -180,10 +180,10 @@ class ProfileManager {
 
   private normalizeKeyVal(val: any): [number, number, number, number] | null {
     if (Array.isArray(val) && val.length === 4) {
-      return [val[0] & 0xff, val[1] & 0xff, val[2] & 0xff, val[3] & 0xff];
+      return canonicalizeKeyRecord([val[0] & 0xff, val[1] & 0xff, val[2] & 0xff, val[3] & 0xff]);
     }
     if (typeof val === 'number') {
-      return uint32ToBytes(val >>> 0);
+      return canonicalizeKeyRecord(uint32ToBytes(val >>> 0));
     }
     return null;
   }
@@ -234,7 +234,8 @@ class ProfileManager {
           const matrixIdx = this.resolveMatrixIdx(key);
           if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
             const offset = matrixIdx * 4;
-            const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            const rawArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            const byteArr = canonicalizeKeyRecord(rawArr);
             newBase[offset] = byteArr[0];
             newBase[offset + 1] = byteArr[1];
             newBase[offset + 2] = byteArr[2];
@@ -255,7 +256,8 @@ class ProfileManager {
           const matrixIdx = this.resolveMatrixIdx(key);
           if (matrixIdx !== null && matrixIdx >= 0 && matrixIdx < 128) {
             const offset = matrixIdx * 4;
-            const byteArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            const rawArr = Array.isArray(bytes) ? bytes : uint32ToBytes(bytes as number);
+            const byteArr = canonicalizeKeyRecord(rawArr);
             newFn[offset] = byteArr[0];
             newFn[offset + 1] = byteArr[1];
             newFn[offset + 2] = byteArr[2];

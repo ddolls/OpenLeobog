@@ -145,6 +145,56 @@ export function findClosestHwColorIndex(hex: string): number {
   return bestIdx;
 }
 
+// Hardware preset colors for Wired USB Mode (SinoWealth MCU ROM slots)
+// Reverse-engineered from official LEOBOG ONE OemDrv.exe at 0x927B8-0x92890:
+// Slot 0: Red (#FF0000 / #FF2B2B)
+// Slot 1: Green (#00FF00 / #2EE65C)
+// Slot 2: Blue (#0000FF / #2E6BFF)
+// Slot 3: Yellow (#FFFF00 / #FFE11A)
+// Slot 4: Purple (#FF00FF / #B833FF)
+// Slot 5: Cyan (#00FFFF / #1AE5FF)
+// Slot 6: White (#FFFFFF)
+// Slot 7: Multicolor / Rainbow
+export const WIRED_HW_COLOR_PRESETS = [
+  { slot: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
+  { slot: 1, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
+  { slot: 2, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
+  { slot: 3, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
+  { slot: 4, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
+  { slot: 5, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
+  { slot: 6, label: 'White', hex: '#FFFFFF', r: 255, g: 255, b: 255 },
+];
+
+export function findWiredHwColorSlot(hex: string): number {
+  const clean = hex.startsWith('#') ? hex.toUpperCase() : ('#' + hex).toUpperCase();
+  const exact = WIRED_HW_COLOR_PRESETS.find((p) => p.hex.toUpperCase() === clean);
+  if (exact) {
+    return exact.slot;
+  }
+  if (clean === '#FF0000') return 0; // Red
+  if (clean === '#00FF00') return 1; // Green
+  if (clean === '#0000FF') return 2; // Blue
+  if (clean === '#FFFF00') return 3; // Yellow
+  if (clean === '#FF00FF') return 4; // Purple
+  if (clean === '#00FFFF') return 5; // Cyan
+  if (clean === '#FFFFFF') return 6; // White
+
+  const { r, g, b } = hexToRgb(hex);
+  let bestSlot = 5; // Default to Cyan
+  let bestDist = Infinity;
+  for (const p of WIRED_HW_COLOR_PRESETS) {
+    const dr = r - p.r;
+    const dg = g - p.g;
+    const db = b - p.b;
+    const dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestSlot = p.slot;
+    }
+  }
+  return bestSlot;
+}
+
 class RgbControllerService {
   private device: any = null;
   private state: RgbConfigState = { ...DEFAULT_RGB_STATE };
@@ -285,56 +335,13 @@ class RgbControllerService {
     }
   }
 
-  // Write 490-byte hardware palette via Feature Report 6 (CMD 0x09) in wired USB mode
-  public async writeWiredPalette(palette490: Uint8Array): Promise<boolean> {
-    if (!this.device || !this.device.opened) return false;
-    try {
-      const pkt = new Uint8Array(519);
-      pkt[0] = 0x09; // CMD: PALETTE_WRITE
-      pkt[1] = 0x00;
-      pkt[2] = 0x00;
-      pkt[3] = 0x01;
-      pkt[4] = 0x01; // length MSB (0x01)
-      pkt[5] = 0xea; // length LSB (0xEA) -> 490 bytes
-      pkt[6] = 0x00;
-      pkt.set(palette490.subarray(0, 490), 7);
-      pkt[513] = 0x5a;
-      pkt[514] = 0xa5;
-
-      await this.device.sendFeatureReport(6, pkt);
-      await new Promise((r) => setTimeout(r, 40));
-      return true;
-    } catch (err: any) {
-      webhid.log(`[RGB Wired Palette Error] ${err.message}`);
-      return false;
-    }
+  // Hardware palette in wired mode: wired firmware uses built-in ROM slots, so CMD 0x09 is unsupported.
+  public async writeWiredPalette(_palette490: Uint8Array): Promise<boolean> {
+    return true;
   }
 
-  // Read 490-byte hardware palette via Feature Report 6 (CMD 0x89) in wired USB mode
   public async readWiredPalette(): Promise<Uint8Array | null> {
-    if (!this.device || !this.device.opened) return null;
-    try {
-      const pkt = new Uint8Array(519);
-      pkt[0] = 0x89; // CMD: PALETTE_READ
-      pkt[1] = 0x00;
-      pkt[2] = 0x00;
-      pkt[3] = 0x01;
-      pkt[4] = 0x01;
-      pkt[5] = 0xea;
-
-      await this.device.sendFeatureReport(6, pkt);
-      await new Promise((r) => setTimeout(r, 40));
-      const res = await this.device.receiveFeatureReport(6);
-      const data = new Uint8Array(res.buffer, res.byteOffset, res.byteLength);
-      const base = data[0] === 6 ? 1 : 0;
-      if (data.length >= base + 7 + PALETTE_SIZE) {
-        return data.slice(base + 7, base + 7 + PALETTE_SIZE);
-      }
-      return null;
-    } catch (err: any) {
-      webhid.log(`[RGB Wired Read Palette Notice] ${err.message}`);
-      return null;
-    }
+    return null;
   }
 
   // Read current lighting configuration via CMD 0x84 (returns 136 bytes) - Dual-mode (USB & 2.4G)
@@ -475,35 +482,8 @@ class RgbControllerService {
       });
 
       if (!this.paletteSynced) {
-        try {
-          const rawPal = await this.readWiredPalette();
-          if (rawPal && rawPal.length === PALETTE_SIZE) {
-            const decoded = decodePalette(rawPal);
-            const isAllZero = decoded.effects.every((row) =>
-              row.every((c) => c.r === 0 && c.g === 0 && c.b === 0)
-            );
-            if (isAllZero) {
-              webhid.log('[RGB Wired] Detected wiped hardware palette (all zeros). Auto-restoring default Leobog palette...');
-              this.palette = createDefaultPalette();
-              await this.writeWiredPalette(encodePalette(this.palette));
-            } else {
-              this.palette = decoded;
-            }
-          } else {
-            this.palette = createDefaultPalette();
-            await this.writeWiredPalette(encodePalette(this.palette));
-          }
-          this.paletteSynced = true;
-        } catch (palErr: any) {
-          webhid.log(`[RGB Wired Palette Sync] Initializing default palette (${palErr.message})`);
-          this.palette = createDefaultPalette();
-          try {
-            await this.writeWiredPalette(encodePalette(this.palette));
-            this.paletteSynced = true;
-          } catch {
-            // Retry later
-          }
-        }
+        this.palette = createDefaultPalette();
+        this.paletteSynced = true;
       }
 
       // Only notify listeners if not in silent/internal sync mode
@@ -645,13 +625,13 @@ class RgbControllerService {
             const lower = colorIdx & 0x0f;
             newCfg[base + 1] = upper | lower;
 
-            // Ensure slot 0 and other slots have active brightness so LEDs are never black
+            // Ensure other slots have active brightness, but never overwrite the active slot
             for (let i = 0; i < 24; i++) {
               const b = 58 + i * 2;
               if (!newCfg[b]) {
                 newCfg[b] = hwBrightness;
               }
-              if (!newCfg[b + 1]) {
+              if (b !== base && !newCfg[b + 1]) {
                 newCfg[b + 1] = 0x27;
               }
             }
@@ -732,18 +712,6 @@ class RgbControllerService {
         if (normalizedEffectId === 1 && !colorful) {
           try {
             const rgb = hexToRgb(normalizedColor);
-            const report8 = new Uint8Array(382);
-            report8[0] = 0x08;
-            report8[1] = 0x0a;
-            report8[2] = 0x7a;
-            report8[3] = 0x01;
-            for (let i = 0; i < 126; i++) {
-              report8[4 + i] = rgb.r;
-              report8[4 + 126 + i] = rgb.g;
-              report8[4 + 252 + i] = rgb.b;
-            }
-            await this.device.sendFeatureReport(8, report8);
-
             const pktPlanar = new Uint8Array(519);
             pktPlanar[0] = 0x06; // CMD: LED_PLANAR
             pktPlanar[3] = 0x01;
@@ -767,26 +735,9 @@ class RgbControllerService {
           await new Promise((r) => setTimeout(r, 30));
         }
 
-        // STEP 3: Synchronize hardware palette for single-color effects (0-indexed effect row: palIdx = normalizedEffectId - 1)
-        const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
-        const palIdx = Math.max(0, Math.min(22, normalizedEffectId - 1));
-        if (!colorful && colorIdx < 7 && normalizedEffectId >= 1 && normalizedEffectId <= 23) {
-          const targetRgb = hexToRgb(normalizedColor);
-          if (!this.palette.effects[palIdx]) {
-            this.palette.effects[palIdx] = HW_COLOR_PRESETS.map((p) => ({ r: p.r, g: p.g, b: p.b }));
-          }
-          const curr = this.palette.effects[palIdx][colorIdx];
-          if (!curr || curr.r !== targetRgb.r || curr.g !== targetRgb.g || curr.b !== targetRgb.b) {
-            this.palette.effects[palIdx][colorIdx] = targetRgb;
-            try {
-              await this.writeWiredPalette(encodePalette(this.palette));
-              this.paletteSynced = true;
-              webhid.log(`[RGB Wired] Palette updated for effect #${normalizedEffectId} (row ${palIdx}) slot ${colorIdx}`);
-            } catch (palErr: any) {
-              webhid.log(`[RGB Wired Palette Error] ${palErr.message}`);
-            }
-          }
-        }
+        // STEP 3: Map color to SinoWealth ROM hardware color slot in wired mode
+        // Slot 0: Red, 1: Green, 2: Blue, 3: Yellow, 4: Purple, 5: Cyan, 6: White, 7: Rainbow
+        const colorIdx = colorful ? 0x07 : findWiredHwColorSlot(normalizedColor);
 
         // STEP 4: Write modified config back (CMD 0x04)
         const pkt = new Uint8Array(519);
@@ -824,13 +775,13 @@ class RgbControllerService {
             const lower = (colorful ? 0x07 : colorIdx) & 0x0f;
             pkt[paramOff + 1] = upper | lower;
           }
-          // Ensure all 24 slots have active brightness
+          // Ensure all 24 slots have active brightness, without overwriting active slot
           for (let i = 0; i < 24; i++) {
             const b = 65 + i * 2;
             if (!pkt[b]) {
               pkt[b] = hwBrightWired;
             }
-            if (!pkt[b + 1]) {
+            if (b !== paramOff && !pkt[b + 1]) {
               pkt[b + 1] = 0x27;
             }
           }
@@ -1026,9 +977,9 @@ class RgbControllerService {
 
     return this.runExclusive(async () => {
       try {
-        await this.writeWiredPalette(encodePalette(this.palette));
+        this.palette = createDefaultPalette();
         this.paletteSynced = true;
-        webhid.log('[RGB Wired] Factory default palette successfully restored to keyboard memory!');
+        webhid.log('[RGB Wired] Factory default effect settings restored to keyboard memory!');
         await this.setHardwareEffect(
           this.state.effectId,
           this.state.brightness,

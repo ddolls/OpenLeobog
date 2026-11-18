@@ -1,4 +1,4 @@
-import { parseKeyRecordUsage, encodeKeyRecordBytes, type KeyRecord } from '../types/hid';
+import { parseKeyRecordUsage, encodeKeyRecordBytes, canonicalizeKeyRecord, type KeyRecord } from '../types/hid';
 import {
   WirelessProtocolClient,
   WIRELESS_VENDOR_ID,
@@ -789,12 +789,13 @@ class WebHIDController {
 
       for (let idx = 0; idx < 128; idx++) {
         const offset = idx * 4;
-        const bytes: [number, number, number, number] = [
+        const rawBytes: [number, number, number, number] = [
           baseTable[offset],
           baseTable[offset + 1],
           baseTable[offset + 2],
           baseTable[offset + 3]
         ];
+        const bytes = canonicalizeKeyRecord(rawBytes);
 
         const stockBytes: [number, number, number, number] = [
           PRISTINE_STAGE5_MATRIX[0][offset] ?? 0,
@@ -834,12 +835,13 @@ class WebHIDController {
       if (fnTable) {
         for (let idx = 0; idx < 128; idx++) {
           const offset = idx * 4;
-          const bytes: [number, number, number, number] = [
+          const rawBytes: [number, number, number, number] = [
             fnTable[offset],
             fnTable[offset + 1],
             fnTable[offset + 2],
             fnTable[offset + 3]
           ];
+          const bytes = canonicalizeKeyRecord(rawBytes);
           const stockBytes = PRISTINE_STAGE5_MATRIX[1].slice(offset, offset + 4);
           const hidUsage = parseKeyRecordUsage(bytes);
           const originalUsage = parseKeyRecordUsage([stockBytes[0], stockBytes[1], stockBytes[2], stockBytes[3]]);
