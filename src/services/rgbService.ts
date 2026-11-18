@@ -40,17 +40,37 @@ const COLOR_CAPABLE_MODES = [1, 2, 4, 5, 7, 8, 10, 11, 12, 13];
 
 // Hardware preset palette colors in SinoWealth ROM (indices 0..6, index 7 = Multicolor)
 export const HW_COLOR_PRESETS = [
-  { index: 0, r: 255, g: 43, b: 43 },   // Red (#ff2b2b)
-  { index: 1, r: 255, g: 140, b: 26 },  // Orange (#ff8c1a)
-  { index: 2, r: 255, g: 225, b: 26 },  // Yellow (#ffe11a)
-  { index: 3, r: 46, g: 230, b: 92 },   // Green (#2ee65c)
-  { index: 4, r: 26, g: 229, b: 255 },  // Cyan (#1ae5ff)
-  { index: 5, r: 46, g: 107, b: 255 },  // Blue (#2e6bff)
-  { index: 6, r: 184, g: 51, b: 255 },  // Purple (#b833ff)
+  { index: 0, label: 'Red', hex: '#FF2B2B', r: 255, g: 43, b: 43 },
+  { index: 1, label: 'Orange', hex: '#FF8C1A', r: 255, g: 140, b: 26 },
+  { index: 2, label: 'Yellow', hex: '#FFE11A', r: 255, g: 225, b: 26 },
+  { index: 3, label: 'Green', hex: '#2EE65C', r: 46, g: 230, b: 92 },
+  { index: 4, label: 'Cyan', hex: '#1AE5FF', r: 26, g: 229, b: 255 },
+  { index: 5, label: 'Blue', hex: '#2E6BFF', r: 46, g: 107, b: 255 },
+  { index: 6, label: 'Purple', hex: '#B833FF', r: 184, g: 51, b: 255 },
 ];
 
 export function findClosestHwColorIndex(hex: string): number {
+  const clean = hex.startsWith('#') ? hex.toUpperCase() : ('#' + hex).toUpperCase();
+  const exact = HW_COLOR_PRESETS.find((p) => p.hex.toUpperCase() === clean);
+  if (exact) {
+    return exact.index;
+  }
   const { r, g, b } = hexToRgb(hex);
+
+  // Perceptual mapping for common non-hardware colors on LED keyboard:
+  // Pure White or near-white maps to Cyan (#1AE5FF, cool white on keyboard LEDs)
+  if (clean === '#FFFFFF' || (r > 210 && g > 210 && b > 210)) {
+    return 4; // Cyan (looks like crisp cool white on keyboard LEDs)
+  }
+  // Magenta/Pink maps to Purple (#B833FF) instead of stark Red
+  if (clean === '#FF007F' || clean === '#FF1493' || clean === '#FF69B4') {
+    return 6; // Purple
+  }
+  // Ice blue maps to Cyan
+  if (clean === '#00D4FF') {
+    return 4; // Cyan
+  }
+
   let bestIdx = 4; // Default to Cyan
   let bestDist = Infinity;
   for (const p of HW_COLOR_PRESETS) {
@@ -235,7 +255,14 @@ class RgbControllerService {
           const brightness = Math.min(4, Math.max(1, cfg128[base] || 4));
           const speedByte = cfg128[base + 1] ?? 0x27;
           const speed = Math.min(4, Math.max(0, (speedByte >> 4) & 0x0f));
-          const colorful = (speedByte & 0x0f) !== 0;
+          const colorNibble = speedByte & 0x0f;
+          const colorful = colorNibble === 0x07;
+
+          let staticColor = this.state.staticColor;
+          const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
+          if (hwPreset && !colorful) {
+            staticColor = hwPreset.hex;
+          }
 
           const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
           const validEffectId =
@@ -252,10 +279,11 @@ class RgbControllerService {
             brightness,
             speed,
             colorful,
+            staticColor,
           });
 
           webhid.log(
-            `[RGB 2.4G Sync] Effect: #${validEffectId}, Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Side: ${validSideLight}`
+            `[RGB 2.4G Sync] Effect: #${validEffectId}, Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${staticColor}, Side: ${validSideLight}`
           );
         }
         return this.cachedConfig;
@@ -311,12 +339,19 @@ class RgbControllerService {
         let brightness = 4;
         let speed = 2;
         let colorful = true;
+        let staticColor = this.state.staticColor;
 
         if (typeof effectId === 'number' && paramOffset + 1 < config136.length) {
           brightness = Math.min(4, Math.max(1, config136[paramOffset]));
           const speedByte = config136[paramOffset + 1];
           speed = Math.min(4, Math.max(0, (speedByte >> 4) & 0x0f));
-          colorful = (speedByte & 0x0f) !== 0;
+          const colorNibble = speedByte & 0x0f;
+          colorful = colorNibble === 0x07;
+
+          const hwPreset = HW_COLOR_PRESETS.find((p) => p.index === colorNibble);
+          if (hwPreset && !colorful) {
+            staticColor = hwPreset.hex;
+          }
         }
 
         const isKnownEffect = LEOBOG_RGB_EFFECTS.some((e) => e.id === effectId);
@@ -330,10 +365,11 @@ class RgbControllerService {
           brightness,
           speed,
           colorful,
+          staticColor,
         });
 
         webhid.log(
-          `[RGB Sync] Effect: #${validEffectId}, Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Side: ${validSideLight}`
+          `[RGB Sync] Effect: #${validEffectId}, Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${staticColor}, Side: ${validSideLight}`
         );
       }
       return this.cachedConfig;
@@ -414,31 +450,9 @@ class RgbControllerService {
             newCfg[10] = 0x00;
           }
 
-          if (COLOR_CAPABLE_MODES.includes(effectId) && !colorful) {
-            try {
-              let pal: Uint8Array;
-              try {
-                pal = await wirelessClient.readPalette();
-              } catch {
-                pal = new Uint8Array(490);
-              }
-              const newPal = new Uint8Array(490);
-              newPal.set(pal);
-              const rgb = hexToRgb(normalizedColor);
-              if (effectId >= 1 && effectId <= 23) {
-                const pOff = (effectId - 1) * 21;
-                // Write user's RGB to both the matching color slot and index 0
-                newPal[pOff + colorIdx * 3] = rgb.r;
-                newPal[pOff + colorIdx * 3 + 1] = rgb.g;
-                newPal[pOff + colorIdx * 3 + 2] = rgb.b;
-                newPal[pOff] = rgb.r;
-                newPal[pOff + 1] = rgb.g;
-                newPal[pOff + 2] = rgb.b;
-                await wirelessClient.writePalette(newPal);
-              }
-            } catch (palErr: any) {
-              webhid.log(`[RGB 2.4G Palette] Warning: ${palErr.message}`);
-            }
+          // For Static mode (ID 1) with custom color, transmit planar RGB map
+          if (effectId === 1 && !colorful) {
+            await this.writeStaticColorProfile(normalizedColor);
           }
 
           await wirelessClient.writeConfig(newCfg);
@@ -474,8 +488,8 @@ class RgbControllerService {
           `[RGB] Applying Effect #${effectId} (Bright: ${brightness}, Speed: ${speed}, Colorful: ${colorful}, Color: ${normalizedColor})...`
         );
 
-        // STEP 1: For color-capable modes, send target color packet via CMD 0x0A when in single-color mode
-        if (COLOR_CAPABLE_MODES.includes(effectId) && !colorful) {
+        // STEP 1: For Static mode (ID 1), send custom color profile via CMD 0x0A when in single-color mode
+        if (effectId === 1 && !colorful) {
           await this.writeStaticColorProfile(normalizedColor);
           // Wait for MCU to write the 519-byte color profile to memory
           await new Promise((r) => setTimeout(r, 60));
@@ -513,13 +527,14 @@ class RgbControllerService {
         pkt[25] = 0x00;
         pkt[35] = 0x00;
 
-        // Patch brightness and speed at offset 63 + 2 * effectId
+        // Patch brightness, speed, and color at offset 63 + 2 * effectId
+        const colorIdx = colorful ? 0x07 : findClosestHwColorIndex(normalizedColor);
         if (effectId > 0 && effectId <= 32) {
           const paramOff = 63 + 2 * effectId;
           if (paramOff + 1 < 519) {
             pkt[paramOff] = Math.max(1, Math.min(4, brightness));
             const upper = (Math.max(0, Math.min(4, speed)) & 0x0f) << 4;
-            const lower = colorful ? 0x07 : 0x00;
+            const lower = (colorful ? 0x07 : colorIdx) & 0x0f;
             pkt[paramOff + 1] = upper | lower;
           }
         } else if (effectId === 0) {
@@ -560,7 +575,7 @@ class RgbControllerService {
           if (pOff + 1 < this.cachedConfig.length) {
             this.cachedConfig[pOff] = Math.max(1, Math.min(4, brightness));
             this.cachedConfig[pOff + 1] =
-              ((Math.max(0, Math.min(4, speed)) & 0x0f) << 4) | (colorful ? 0x07 : 0x00);
+              ((Math.max(0, Math.min(4, speed)) & 0x0f) << 4) | (colorful ? 0x07 : colorIdx);
           }
         }
 
@@ -630,20 +645,14 @@ class RgbControllerService {
     if (wirelessClient) {
       try {
         const rgb = hexToRgb(hex);
-        let pal: Uint8Array;
-        try {
-          pal = await wirelessClient.readPalette();
-        } catch {
-          pal = new Uint8Array(490);
+        const rgb378 = new Uint8Array(378);
+        for (let i = 0; i < 126; i++) {
+          rgb378[i] = rgb.r;
+          rgb378[126 + i] = rgb.g;
+          rgb378[252 + i] = rgb.b;
         }
-        const newPal = new Uint8Array(490);
-        newPal.set(pal);
-        const currEff = this.state.effectId >= 1 && this.state.effectId <= 23 ? this.state.effectId : 1;
-        const pOff = (currEff - 1) * 21;
-        newPal[pOff] = rgb.r;
-        newPal[pOff + 1] = rgb.g;
-        newPal[pOff + 2] = rgb.b;
-        await wirelessClient.writePalette(newPal);
+        await wirelessClient.writeRgbMap(rgb378);
+        webhid.log(`[RGB 2.4G] Static solid color ${hex} sent via planar RGB map.`);
         return true;
       } catch (err: any) {
         webhid.log(`[RGB 2.4G] Static color profile error: ${err.message}`);

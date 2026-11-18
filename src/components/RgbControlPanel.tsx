@@ -758,6 +758,12 @@ export const RgbControlPanel: React.FC<RgbControlPanelProps> = ({ isConnected, i
                   className="bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs font-mono text-zinc-200 flex-1 uppercase focus:border-cyan-500 outline-none"
                 />
               </div>
+
+              {activeEffectObj && activeEffectObj.id !== 1 && activeEffectObj.hasColor !== false && (
+                <p className="text-[10px] text-zinc-500 leading-tight">
+                  Animation effects use Leobog hardware shaders (7 primary colors + Rainbow). Static mode (#1) supports full custom RGB spectrum.
+                </p>
+              )}
             </div>
           </div>
         </div>
