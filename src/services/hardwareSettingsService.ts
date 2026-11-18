@@ -250,8 +250,6 @@ class HardwareSettingsService {
         // Mirror to secondary / LowDaly offsets for maximum cross-revision firmware compatibility
         pkt[7 + 2] = debounceStage; // pkt[9]
         pkt[7 + 8] = tapVal;        // pkt[15]
-        pkt[2] = debounceStage;
-        pkt[8] = tapVal;
 
         webhid.log(
           `[Hardware Settings] Writing packet: pkt[10](Debounce)=${pkt[10]}, pkt[29](Tap)=${pkt[29]}, pkt[31](Sleep)=${pkt[31]}`

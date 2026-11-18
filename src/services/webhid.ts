@@ -584,6 +584,8 @@ class WebHIDController {
         const keymap504 = await this.wirelessClient.readKeymap(0);
         const table512 = new Uint8Array(512);
         table512.set(keymap504, 0);
+        table512[508] = 90;
+        table512[509] = 165;
         this.notify({ isAsleep: false });
         return table512;
       } catch (err: any) {
@@ -664,6 +666,8 @@ class WebHIDController {
         const keymap504 = await this.wirelessClient.readKeymap(1);
         const table512 = new Uint8Array(512);
         table512.set(keymap504, 0);
+        table512[508] = 90;
+        table512[509] = 165;
         this.notify({ isAsleep: false });
         return table512;
       } catch (err: any) {

@@ -117,10 +117,12 @@ class BatteryService {
     if (update.isConnected) {
       const devName = update.deviceName || '';
       const isWireless =
-        devName.toLowerCase().includes('2.4g') ||
-        devName.toLowerCase().includes('dongle') ||
-        devName.toLowerCase().includes('receiver') ||
-        devName.toLowerCase().includes('wireless');
+        update.isWireless !== undefined
+          ? update.isWireless
+          : devName.toLowerCase().includes('2.4g') ||
+            devName.toLowerCase().includes('dongle') ||
+            devName.toLowerCase().includes('receiver') ||
+            devName.toLowerCase().includes('wireless');
 
       const mode = isWireless ? '2.4g' : 'wired';
       const isCharging = !isWireless; // USB mode supplies constant 5V VBUS power

@@ -728,6 +728,8 @@ class RgbControllerService {
           pkt[17] = 0x00;
         }
 
+        pkt[133] = 0x5a;
+        pkt[134] = 0xa5;
         pkt[513] = 0x5a;
         pkt[514] = 0xa5;
 
@@ -1192,6 +1194,8 @@ class RgbControllerService {
           cfgPkt[b + 1] = 0x27;
         }
 
+        cfgPkt[133] = 0x5a;
+        cfgPkt[134] = 0xa5;
         cfgPkt[513] = 0x5a;
         cfgPkt[514] = 0xa5;
 
